@@ -7,4 +7,4 @@ This guide explains the full deployment process for the Azure Functions translat
 3. Run `deploy.ps1` to provision resources and deploy code.
 4. Use `test-deployment.ps1` to run a health check after deployment.
 
-For troubleshooting tips and cost estimates see the original French documentation.
+For troubleshooting tips and cost estimates see the README.
