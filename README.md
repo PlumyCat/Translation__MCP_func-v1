@@ -110,6 +110,10 @@ curl -X POST https://your-function-app.azurewebsites.net/api/start_translation \
 
 ## 🔧 Configuration
 
+Un fichier `local.settings.json.example` est fourni pour l'exécution locale.
+Copiez-le en `local.settings.json` puis renseignez vos valeurs personnelles
+avant de lancer les fonctions.
+
 ### Variables d'environnement requises
 
 ```bash
