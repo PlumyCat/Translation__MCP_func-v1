@@ -53,7 +53,8 @@ class BlobService:
 
         try:
             # Génération des noms de fichiers avec suffixe de langue
-            input_blob_name = input_blob_name
+            # Utilisation du nom de fichier fourni pour le blob source
+            input_blob_name = file_name
             file_base, file_ext = input_blob_name.rsplit(".", 1) if "." in input_blob_name else (input_blob_name, "")
 
             # Format amélioré: file_name-fr.docx au lieu de file_name_fr.docx
