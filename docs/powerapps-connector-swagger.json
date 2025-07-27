@@ -1,147 +1,346 @@
 {
-  "swagger": "2.0",
-  "info": {
-    "title": "Document Translation Service",
-    "description": "Swagger definition for the Power Apps custom connector using the Azure Functions API.",
-    "version": "1.0.0"
-  },
-  "host": "YOUR_FUNCTION_APP.azurewebsites.net",
-  "basePath": "/api",
-  "schemes": [
-    "https"
-  ],
-  "securityDefinitions": {
-    "function_key": {
-      "type": "apiKey",
-      "name": "code",
-      "in": "query",
-      "description": "Azure Functions key"
-    }
-  },
-  "security": [
-    {
-      "function_key": []
-    }
-  ],
-  "paths": {
-    "/health": {
-      "get": {
-        "summary": "Health check",
-        "operationId": "Health",
-        "produces": ["application/json"],
-        "responses": {
-          "200": {"description": "Service is running"}
-        }
-      }
+    "swagger": "2.0",
+    "info": {
+        "title": "Document Translation Service",
+        "description": "Swagger definition for Power Apps custom connector using Azure Functions API.",
+        "version": "1.0.0"
     },
-    "/start_translation": {
-      "post": {
-        "summary": "Start a new document translation",
-        "operationId": "StartTranslation",
-        "consumes": ["application/json"],
-        "produces": ["application/json"],
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/StartTranslationRequest"
+    "host": "YOUR_FUNCTION_APP.azurewebsites.net",
+    "basePath": "/api",
+    "schemes": [
+        "https"
+    ],
+    "securityDefinitions": {
+        "function_key": {
+            "type": "apiKey",
+            "name": "code",
+            "in": "query"
+        }
+    },
+    "security": [
+        {
+            "function_key": []
+        }
+    ],
+    "paths": {
+        "/health": {
+            "get": {
+                "summary": "Health check",
+                "operationId": "Health",
+                "responses": {
+                    "200": {
+                        "description": "Service is healthy",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {
+                                    "type": "boolean",
+                                    "x-ms-visibility": "important"
+                                },
+                                "timestamp": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                },
+                                "status": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                },
+                                "translator": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                },
+                                "blob_storage": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                },
+                                "onedrive": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                }
+                            }
+                        }
+                    }
+                }
             }
-          }
-        ],
-        "responses": {
-          "202": {"description": "Translation started"}
-        }
-      }
-    },
-    "/check_status/{translation_id}": {
-      "get": {
-        "summary": "Check translation status",
-        "operationId": "CheckStatus",
-        "produces": ["application/json"],
-        "parameters": [
-          {
-            "name": "translation_id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "responses": {
-          "200": {"description": "Status information"}
-        }
-      }
-    },
-    "/get_result": {
-      "get": {
-        "summary": "Retrieve translation result",
-        "operationId": "GetResult",
-        "produces": ["application/json"],
-        "parameters": [
-          {
-            "name": "blob_name",
-            "in": "query",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "target_language",
-            "in": "query",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "user_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          }
-        ],
-        "responses": {
-          "200": {"description": "URL of the translated file"}
-        }
-      }
-    },
-    "/languages": {
-      "get": {
-        "summary": "List supported languages",
-        "operationId": "Languages",
-        "produces": ["application/json"],
-        "responses": {
-          "200": {"description": "Collection of languages"}
-        }
-      }
-    },
-    "/formats": {
-      "get": {
-        "summary": "List supported file formats",
-        "operationId": "Formats",
-        "produces": ["application/json"],
-        "responses": {
-          "200": {"description": "Collection of formats"}
-        }
-      }
-    }
-  },
-  "definitions": {
-    "StartTranslationRequest": {
-      "type": "object",
-      "required": ["blob_name", "target_language", "user_id"],
-      "properties": {
-        "blob_name": {
-          "type": "string",
-          "description": "Name of the source blob"
         },
-        "target_language": {
-          "type": "string",
-          "description": "Language code for translation"
+        "/languages": {
+            "get": {
+                "summary": "List supported languages",
+                "operationId": "Languages",
+                "responses": {
+                    "200": {
+                        "description": "Languages supported",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {
+                                    "type": "boolean",
+                                    "x-ms-visibility": "important"
+                                },
+                                "timestamp": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                },
+                                "languages": {
+                                    "type": "object",
+                                    "x-ms-visibility": "important"
+                                },
+                                "count": {
+                                    "type": "integer",
+                                    "x-ms-visibility": "important"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         },
-        "user_id": {
-          "type": "string",
-          "description": "User identifier"
+        "/formats": {
+            "get": {
+                "summary": "List supported file formats",
+                "operationId": "Formats",
+                "responses": {
+                    "200": {
+                        "description": "File formats supported",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {
+                                    "type": "boolean",
+                                    "x-ms-visibility": "important"
+                                },
+                                "timestamp": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                },
+                                "formats": {
+                                    "type": "object",
+                                    "x-ms-visibility": "important"
+                                },
+                                "count": {
+                                    "type": "integer",
+                                    "x-ms-visibility": "important"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/start_translation": {
+            "post": {
+                "summary": "Start translation",
+                "operationId": "StartTranslation",
+                "parameters": [
+                    {
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "blob_name": {
+                                    "type": "string",
+                                    "x-ms-summary": "Blob Name"
+                                },
+                                "target_language": {
+                                    "type": "string",
+                                    "x-ms-summary": "Target Language"
+                                },
+                                "user_id": {
+                                    "type": "string",
+                                    "x-ms-summary": "User ID"
+                                }
+                            },
+                            "required": [
+                                "blob_name",
+                                "target_language",
+                                "user_id"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Translation started",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {
+                                    "type": "boolean",
+                                    "x-ms-visibility": "important"
+                                },
+                                "timestamp": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                },
+                                "translation_id": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                },
+                                "status": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                },
+                                "target_language": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                },
+                                "estimated_time": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/check_status/{translation_id}": {
+            "get": {
+                "summary": "Check translation status",
+                "operationId": "CheckStatus",
+                "parameters": [
+                    {
+                        "name": "translation_id",
+                        "in": "path",
+                        "required": true,
+                        "type": "string",
+                        "x-ms-summary": "Translation ID"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Current translation status",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {
+                                    "type": "boolean",
+                                    "x-ms-visibility": "important"
+                                },
+                                "timestamp": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                },
+                                "translation_id": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                },
+                                "status": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                },
+                                "progress": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                },
+                                "created_at": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                },
+                                "last_updated": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                },
+                                "total": {
+                                    "type": "integer",
+                                    "x-ms-visibility": "important"
+                                },
+                                "failed": {
+                                    "type": "integer",
+                                    "x-ms-visibility": "important"
+                                },
+                                "success_count": {
+                                    "type": "integer",
+                                    "x-ms-visibility": "important"
+                                },
+                                "in_progress": {
+                                    "type": "integer",
+                                    "x-ms-visibility": "important"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/get_result": {
+            "post": {
+                "summary": "Get translation result",
+                "operationId": "GetResult",
+                "parameters": [
+                    {
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "blob_name": {
+                                    "type": "string",
+                                    "x-ms-summary": "Blob Name"
+                                },
+                                "target_language": {
+                                    "type": "string",
+                                    "x-ms-summary": "Target Language"
+                                },
+                                "user_id": {
+                                    "type": "string",
+                                    "x-ms-summary": "User ID"
+                                }
+                            },
+                            "required": [
+                                "blob_name",
+                                "target_language",
+                                "user_id"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Translation result",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {
+                                    "type": "boolean",
+                                    "x-ms-visibility": "important"
+                                },
+                                "timestamp": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                },
+                                "blob_name": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                },
+                                "target_language": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                },
+                                "output_blob_name": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                },
+                                "download_url": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                },
+                                "user_id": {
+                                    "type": "string",
+                                    "x-ms-visibility": "important"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-      }
     }
-  }
 }
