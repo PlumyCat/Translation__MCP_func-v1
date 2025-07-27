@@ -28,23 +28,20 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     try:
         # Extraction des paramètres selon la méthode HTTP
         if req.method.upper() == 'POST':
-            # POST avec JSON body
-            if not req.get_body():
-                return create_error_response("Corps de requête JSON manquant", 400)
-            
-            try:
-                data = req.get_json()
-                if not data:
-                    return create_error_response("JSON invalide ou vide", 400)
-                    
-                blob_name = data.get('blob_name')
-                target_language = data.get('target_language')
-                user_id = data.get('user_id')
-                
-                logger.info(f"📋 Paramètres POST - blob: {blob_name}, langue: {target_language}, user: {user_id}")
-                
-            except Exception as e:
-                return create_error_response(f"Erreur de parsing JSON: {str(e)}", 400)
+            # POST avec JSON body en utilisant le validateur commun
+            success, data_or_resp = validate_json_request(
+                req, ["blob_name", "target_language"]
+            )
+            if not success:
+                return data_or_resp
+
+            blob_name = data_or_resp.get("blob_name")
+            target_language = data_or_resp.get("target_language")
+            user_id = data_or_resp.get("user_id")
+
+            logger.info(
+                f"📋 Paramètres POST - blob: {blob_name}, langue: {target_language}, user: {user_id}"
+            )
                 
         else:
             # GET avec paramètres URL
