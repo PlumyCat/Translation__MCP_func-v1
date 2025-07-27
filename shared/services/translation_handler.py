@@ -9,6 +9,7 @@ import time
 from typing import Dict, Any
 from shared.services.blob_service import BlobService
 from shared.services.translation_service import TranslationService
+from shared.services.state_manager import StateManager
 from shared.models.schemas import (
     TranslationRequest, 
     TranslationInfo, 
@@ -27,6 +28,7 @@ class TranslationHandler:
     def __init__(self):
         self.blob_service = BlobService()
         self.translation_service = TranslationService()
+        self.state_manager = StateManager()
         self.max_age_hours = Config.CLEANUP_INTERVAL_HOURS
 
         logger.info("✅ TranslationHandler initialisé")
