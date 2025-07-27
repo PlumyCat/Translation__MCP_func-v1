@@ -1,0 +1,147 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Document Translation Service",
+    "description": "Swagger definition for the Power Apps custom connector using the Azure Functions API.",
+    "version": "1.0.0"
+  },
+  "host": "YOUR_FUNCTION_APP.azurewebsites.net",
+  "basePath": "/api",
+  "schemes": [
+    "https"
+  ],
+  "securityDefinitions": {
+    "function_key": {
+      "type": "apiKey",
+      "name": "code",
+      "in": "query",
+      "description": "Azure Functions key"
+    }
+  },
+  "security": [
+    {
+      "function_key": []
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "operationId": "Health",
+        "produces": ["application/json"],
+        "responses": {
+          "200": {"description": "Service is running"}
+        }
+      }
+    },
+    "/start_translation": {
+      "post": {
+        "summary": "Start a new document translation",
+        "operationId": "StartTranslation",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/StartTranslationRequest"
+            }
+          }
+        ],
+        "responses": {
+          "202": {"description": "Translation started"}
+        }
+      }
+    },
+    "/check_status/{translation_id}": {
+      "get": {
+        "summary": "Check translation status",
+        "operationId": "CheckStatus",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "translation_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {"description": "Status information"}
+        }
+      }
+    },
+    "/get_result": {
+      "get": {
+        "summary": "Retrieve translation result",
+        "operationId": "GetResult",
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "blob_name",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "target_language",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {"description": "URL of the translated file"}
+        }
+      }
+    },
+    "/languages": {
+      "get": {
+        "summary": "List supported languages",
+        "operationId": "Languages",
+        "produces": ["application/json"],
+        "responses": {
+          "200": {"description": "Collection of languages"}
+        }
+      }
+    },
+    "/formats": {
+      "get": {
+        "summary": "List supported file formats",
+        "operationId": "Formats",
+        "produces": ["application/json"],
+        "responses": {
+          "200": {"description": "Collection of formats"}
+        }
+      }
+    }
+  },
+  "definitions": {
+    "StartTranslationRequest": {
+      "type": "object",
+      "required": ["blob_name", "target_language", "user_id"],
+      "properties": {
+        "blob_name": {
+          "type": "string",
+          "description": "Name of the source blob"
+        },
+        "target_language": {
+          "type": "string",
+          "description": "Language code for translation"
+        },
+        "user_id": {
+          "type": "string",
+          "description": "User identifier"
+        }
+      }
+    }
+  }
+}
