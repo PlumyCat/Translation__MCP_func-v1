@@ -1,0 +1,16 @@
+.git*
+.vscode
+__azurite_db*__.json
+__blobstorage__
+__queuestorage__
+local.settings.json
+test
+.venv
+*.ps1
+*.md
+*.http
+mcp-list-prompts-data.swagger.json
+Translator-MCP-srv.swagger.json
+__pycache__
+Translator-MCP-srv.swagger.json
+*.PublishSettings

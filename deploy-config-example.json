@@ -1,0 +1,19 @@
+{
+  "deploymentInfo": {
+    "description": "Configuration de déploiement pour Azure Functions Translation Service",
+    "createdDate": "2025-01-27 12:00:00",
+    "version": "1.0"
+  },
+  "resourceGroupName": "rg-translation-demo",
+  "functionAppName": "func-translate-demo",
+  "storageAccountName": "sttranslatedemo",
+  "translatorName": "translator-demo",
+  "location": "francecentral",
+  "onedrive": {
+    "enabled": false,
+    "clientId": "your-client-id-here",
+    "secretId": "your-secret-here", 
+    "tenantId": "your-tenant-id-here",
+    "folder": "Translated_Documents"
+  }
+}
