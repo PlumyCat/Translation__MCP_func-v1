@@ -1,0 +1,20 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "AZURE_ACCOUNT_NAME": "<your-storage-account>",
+    "AZURE_ACCOUNT_KEY": "<your-storage-key>",
+    "INPUT_CONTAINER": "doc-to-trad",
+    "OUTPUT_CONTAINER": "doc-trad",
+    "TRANSLATOR_KEY": "<your-translator-key>",
+    "TRANSLATOR_ENDPOINT": "https://<region>.api.cognitive.microsofttranslator.com/",
+    "TRANSLATOR_REGION": "<region>",
+    "CLIENT_ID": "<your-app-client-id>",
+    "SECRET_ID": "<your-app-secret>",
+    "TENANT_ID": "<your-tenant-id>",
+    "ONEDRIVE_UPLOAD_ENABLED": "false",
+    "ONEDRIVE_FOLDER": "<folder-name>",
+    "CLEANUP_INTERVAL_HOURS": "1"
+  }
+}
