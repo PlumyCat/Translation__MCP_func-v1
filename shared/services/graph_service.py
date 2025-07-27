@@ -5,7 +5,6 @@ Adapté du code conteneur existant
 
 import logging
 import requests
-import base64
 from typing import Dict, Any, Optional
 from shared.config import Config
 

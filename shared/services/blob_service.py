@@ -5,7 +5,6 @@ Adapté du code conteneur existant
 
 import logging
 import base64
-import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List, Optional, Tuple
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
