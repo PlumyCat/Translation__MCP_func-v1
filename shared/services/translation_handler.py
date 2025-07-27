@@ -187,28 +187,28 @@ class TranslationHandler:
 
     def _validate_request(self, file_content: str, file_name: str, 
                          target_language: str, user_id: str) -> list:
-        """Valide les paramètres de la requête"""
+        """Validate request parameters"""
         errors = []
 
-        # Validation du contenu du fichier
+        # Validate file content
         if not file_content or not file_content.strip():
-            errors.append("Contenu du fichier manquant")
+            errors.append("Missing file content")
 
-        # Validation du nom de fichier
+        # Validate file name
         if not file_name or not file_name.strip():
-            errors.append("Nom du fichier manquant")
+            errors.append("Missing file name")
         elif not validate_file_format(file_name):
-            errors.append(f"Format de fichier non supporté: {file_name}")
+            errors.append(f"Unsupported file format: {file_name}")
 
-        # Validation de la langue
+        # Validate target language
         if not target_language or not target_language.strip():
-            errors.append("Langue cible manquante")
+            errors.append("Missing target language")
         elif not validate_language_code(target_language):
-            errors.append(f"Code de langue non supporté: {target_language}")
+            errors.append(f"Unsupported language code: {target_language}")
 
-        # Validation de l'utilisateur
+        # Validate user identifier
         if not user_id or not user_id.strip():
-            errors.append("ID utilisateur manquant")
+            errors.append("Missing user ID")
 
         return errors
 
