@@ -19,7 +19,7 @@ def test_validate_request_success(state_cls, trans_cls, blob_cls):
 def test_validate_request_errors(state_cls, trans_cls, blob_cls):
     handler = TranslationHandler()
     errors = handler._validate_request('', 'file.xyz', 'zz', '')
-    assert 'Contenu du fichier manquant' in errors
-    assert any('Format de fichier non supporté' in e for e in errors)
-    assert any('Code de langue non supporté' in e for e in errors)
-    assert 'ID utilisateur manquant' in errors
+    assert 'Missing file content' in errors
+    assert any('Unsupported file format' in e for e in errors)
+    assert any('Unsupported language code' in e for e in errors)
+    assert 'Missing user ID' in errors
