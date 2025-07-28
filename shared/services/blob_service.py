@@ -23,9 +23,11 @@ class BlobService:
         self.account_key = Config.AZURE_ACCOUNT_KEY
 
         if not self.account_name:
-            raise ValueError("AZURE_ACCOUNT_NAME environnement variable manquante")
+            raise ValueError(
+                "AZURE_ACCOUNT_NAME environnement variable manquante")
         if not self.account_key:
-            raise ValueError("AZURE_ACCOUNT_KEY environnement variable manquante")
+            raise ValueError(
+                "AZURE_ACCOUNT_KEY environnement variable manquante")
 
         # Assurer le format correct de la clé
         if not self.account_key.endswith("=="):
@@ -48,13 +50,15 @@ class BlobService:
         Prépare les blobs source et cible pour la traduction
         Version synchrone pour Azure Functions
         """
-        logger.info(f"📁 Préparation des blobs pour {file_name} → {target_language}")
+        logger.info(
+            f"📁 Préparation des blobs pour {file_name} → {target_language}")
 
         try:
             # Génération des noms de fichiers avec suffixe de langue
             # Utilisation du nom de fichier fourni pour le blob source
             input_blob_name = file_name
-            file_base, file_ext = input_blob_name.rsplit(".", 1) if "." in input_blob_name else (input_blob_name, "")
+            file_base, file_ext = input_blob_name.rsplit(
+                ".", 1) if "." in input_blob_name else (input_blob_name, "")
 
             # Format amélioré: file_name-fr.docx au lieu de file_name_fr.docx
             output_blob_name = f"{file_base}-{target_language}.{file_ext}" if file_ext else f"{file_base}-{target_language}"
@@ -66,7 +70,8 @@ class BlobService:
             self._delete_old_files(self.output_container, max_age_hours=1)
 
             # Suppression du fichier cible s'il existe déjà
-            self._check_and_delete_target_blob(self.output_container, output_blob_name)
+            self._check_and_delete_target_blob(
+                self.output_container, output_blob_name)
 
             # Conversion et upload du fichier source
             file_content_binary = base64.b64decode(file_content_base64)
@@ -89,8 +94,10 @@ class BlobService:
             logger.info("✅ Fichier source uploadé avec succès")
 
             # Génération des URLs SAS
-            source_url = self._generate_sas_url(self.input_container, input_blob_name, read=True)
-            target_url = self._generate_sas_url(self.output_container, output_blob_name, write=True)
+            source_url = self._generate_sas_url(
+                self.input_container, input_blob_name, read=True)
+            target_url = self._generate_sas_url(
+                self.output_container, output_blob_name, write=True)
 
             return {
                 "source_url": source_url,
@@ -100,13 +107,15 @@ class BlobService:
             }
 
         except Exception as e:
-            logger.error(f"❌ Erreur lors de la préparation des blobs: {str(e)}")
+            logger.error(
+                f"❌ Erreur lors de la préparation des blobs: {str(e)}")
             raise
 
     def get_translated_file_url(self, output_blob_name: str) -> Optional[str]:
         """
         Génère une URL de téléchargement pour le fichier traduit
         """
+        from urllib.parse import quote
         try:
             # Vérifier si le blob existe
             blob_client = self.blob_service_client.get_blob_client(
@@ -115,18 +124,36 @@ class BlobService:
             )
 
             if not blob_client.exists():
-                logger.warning(f"⚠️ Fichier traduit introuvable: {output_blob_name}")
+                logger.warning(
+                    f"⚠️ Fichier traduit introuvable: {output_blob_name}")
                 return None
+
+            # Encodage correct du nom de fichier dans l'URL
+            encoded_blob_name = quote(output_blob_name)
 
             # Générer URL SAS avec permissions de écriture (valide 24h)
             download_url = self._generate_sas_url(
-                self.output_container, 
-                output_blob_name, 
+                self.output_container,
+                output_blob_name,
                 write=True,
                 expiry_hours=24
             )
 
-            logger.info(f"✅ URL de téléchargement générée pour: {output_blob_name}")
+            # Remplacer le nom du blob dans l'URL par la version encodée
+            if download_url:
+                # On ne touche qu'à la partie chemin du blob
+                parts = download_url.split('/')
+                # Cherche le nom du blob à la fin
+                if parts[-1] == output_blob_name:
+                    parts[-1] = encoded_blob_name
+                    download_url = '/'.join(parts)
+                else:
+                    # fallback: remplace la première occurrence brute
+                    download_url = download_url.replace(
+                        output_blob_name, encoded_blob_name, 1)
+
+            logger.info(
+                f"✅ URL de téléchargement générée pour: {output_blob_name}")
             return download_url
 
         except Exception as e:
@@ -144,7 +171,8 @@ class BlobService:
             )
 
             if not blob_client.exists():
-                logger.warning(f"⚠️ Fichier traduit introuvable: {output_blob_name}")
+                logger.warning(
+                    f"⚠️ Fichier traduit introuvable: {output_blob_name}")
                 return None
 
             # Téléchargement du contenu
@@ -174,7 +202,8 @@ class BlobService:
                 input_blob_client.delete_blob()
                 logger.info(f"🗑️ Fichier source supprimé: {input_blob_name}")
             except Exception as e:
-                logger.warning(f"⚠️ Impossible de supprimer le fichier source: {str(e)}")
+                logger.warning(
+                    f"⚠️ Impossible de supprimer le fichier source: {str(e)}")
                 success = False
 
             # Suppression du fichier cible (optionnel)
@@ -185,9 +214,11 @@ class BlobService:
                 )
                 if output_blob_client.exists():
                     output_blob_client.delete_blob()
-                    logger.info(f"🗑️ Fichier cible supprimé: {output_blob_name}")
+                    logger.info(
+                        f"🗑️ Fichier cible supprimé: {output_blob_name}")
             except Exception as e:
-                logger.warning(f"⚠️ Impossible de supprimer le fichier cible: {str(e)}")
+                logger.warning(
+                    f"⚠️ Impossible de supprimer le fichier cible: {str(e)}")
 
             return success
 
@@ -195,16 +226,17 @@ class BlobService:
             logger.error(f"❌ Erreur lors du nettoyage: {str(e)}")
             return False
 
-    def _generate_sas_url(self, container_name: str, blob_name: str, 
-                      read: bool = False, write: bool = False, 
-                      expiry_hours: int = 2) -> str:
+    def _generate_sas_url(self, container_name: str, blob_name: str,
+                          read: bool = False, write: bool = False,
+                          expiry_hours: int = 2) -> str:
         """Génère une URL SAS pour un blob"""
         # Crée l'objet permission directement
         if write == True:
-            permissions="rw"
+            permissions = "rw"
         else:
-            permissions="r"
-        expiry_time = datetime.now(timezone.utc) + timedelta(hours=expiry_hours)
+            permissions = "r"
+        expiry_time = datetime.now(timezone.utc) + \
+            timedelta(hours=expiry_hours)
         sas_token = generate_blob_sas(
             account_name=self.account_name,
             container_name=container_name,
@@ -213,13 +245,15 @@ class BlobService:
             permission=permissions,
             expiry=expiry_time
         )
-        logger.info(f"SAS URL générée: {Config.get_storage_url()}/{container_name}/{blob_name}?{sas_token}")
+        logger.info(
+            f"SAS URL générée: {Config.get_storage_url()}/{container_name}/{blob_name}?{sas_token}")
         return f"{Config.get_storage_url()}/{container_name}/{blob_name}?{sas_token}"
 
     def _get_content_type(self, file_name: str) -> str:
         """Détermine le type MIME d'un fichier"""
-        extension = file_name.lower().split('.')[-1] if '.' in file_name else ''
-        
+        extension = file_name.lower().split(
+            '.')[-1] if '.' in file_name else ''
+
         content_types = {
             'pdf': 'application/pdf',
             'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -234,7 +268,7 @@ class BlobService:
             'xml': 'application/xml',
             'rtf': 'application/rtf'
         }
-        
+
         return content_types.get(extension, 'application/octet-stream')
 
     def _check_and_delete_target_blob(self, container_name: str, blob_name: str) -> bool:
@@ -244,23 +278,26 @@ class BlobService:
                 container=container_name,
                 blob=blob_name
             )
-            
+
             if blob_client.exists():
                 blob_client.delete_blob()
                 logger.info(f"🗑️ Ancien fichier cible supprimé: {blob_name}")
                 return True
-            
+
             return False
-            
+
         except Exception as e:
-            logger.warning(f"⚠️ Erreur lors de la suppression du fichier cible: {str(e)}")
+            logger.warning(
+                f"⚠️ Erreur lors de la suppression du fichier cible: {str(e)}")
             return False
 
     def _delete_old_files(self, container_name: str, max_age_hours: int = 1) -> int:
         """Supprime les anciens fichiers du conteneur"""
         try:
-            container_client = self.blob_service_client.get_container_client(container_name)
-            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
+            container_client = self.blob_service_client.get_container_client(
+                container_name)
+            cutoff_time = datetime.now(
+                timezone.utc) - timedelta(hours=max_age_hours)
             deleted_count = 0
 
             blobs = container_client.list_blobs()
@@ -269,19 +306,23 @@ class BlobService:
                     try:
                         container_client.delete_blob(blob.name)
                         deleted_count += 1
-                        logger.debug(f"🗑️ Ancien fichier supprimé: {blob.name}")
+                        logger.debug(
+                            f"🗑️ Ancien fichier supprimé: {blob.name}")
                     except Exception as e:
-                        logger.warning(f"⚠️ Impossible de supprimer {blob.name}: {str(e)}")
+                        logger.warning(
+                            f"⚠️ Impossible de supprimer {blob.name}: {str(e)}")
 
             if deleted_count > 0:
-                logger.info(f"🧹 {deleted_count} anciens fichiers supprimés du conteneur {container_name}")
+                logger.info(
+                    f"🧹 {deleted_count} anciens fichiers supprimés du conteneur {container_name}")
 
             return deleted_count
 
         except Exception as e:
-            logger.error(f"❌ Erreur lors du nettoyage des anciens fichiers: {str(e)}")
+            logger.error(
+                f"❌ Erreur lors du nettoyage des anciens fichiers: {str(e)}")
             return 0
-        
+
     def check_blob_exists(self, blob_name: str) -> bool:
         """Vérifie si un blob existe dans un container"""
         try:
@@ -294,7 +335,7 @@ class BlobService:
             logger.error(
                 f"Erreur lors de la vérification du blob {blob_name}: {str(e)}")
             return False
-        
+
     def prepare_translation_urls(self, input_blob_name: str, target_language: str) -> Dict[str, str]:
         """
         Prépare les URLs pour la traduction d'un blob existant
@@ -336,7 +377,8 @@ class BlobService:
             self._delete_old_files(self.output_container, max_age_hours=1)
 
             # Suppression du fichier cible s'il existe déjà
-            self._check_and_delete_target_blob(self.output_container, output_blob_name)
+            self._check_and_delete_target_blob(
+                self.output_container, output_blob_name)
 
             # Génération des SAS URLs
             source_url = self._generate_sas_url(

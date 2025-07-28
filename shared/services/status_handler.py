@@ -31,11 +31,7 @@ class StatusHandler:
             status = self.translation_service.check_translation_status(translation_id)
             response_data = {
                 "translation_id": translation_id,
-                "status": status.get("status"),
-                "progress": status.get("progress"),
-                "created_at": status.get("created_at"),
-                "last_updated": status.get("last_updated"),
-                "summary": status.get("summary"),
+                "status": status.get("status")
             }
             if status.get("status") == "Failed":
                 response_data["error"] = status.get("error", "Erreur inconnue")
@@ -138,9 +134,7 @@ class StatusHandler:
             "status": status_data["status"],
             "file_name": translation_info.file_name,
             "target_language": translation_info.target_language,
-            "user_id": translation_info.user_id,
-            "started_at": translation_info.started_at,
-            "completed_at": time.time()
+            "user_id": translation_info.user_id
         }
 
         # Option 1: URL de téléchargement direct

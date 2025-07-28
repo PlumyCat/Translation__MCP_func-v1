@@ -8,8 +8,7 @@
       "name": "req",
       "methods": [
         "get"
-      ],
-      "route": "check_status/{translation_id}"
+      ]
     },
     {
       "type": "http",

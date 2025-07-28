@@ -1,6 +1,6 @@
 """
 Vérifie le statut d'une traduction en cours
-Route: GET /api/check_status/{translation_id}
+Route: GET /api/check_status?translation_id={translation_id}
 """
 
 import azure.functions as func
@@ -17,11 +17,11 @@ from shared.utils.response_helper import create_response, create_error_response
 def main(req: func.HttpRequest) -> func.HttpResponse:
     """
     Vérifie le statut d'une traduction en cours
-    Route: GET /api/check_status/{translation_id}
+    Route: GET /api/check_status?translation_id={translation_id}
     """
     try:
-        # Récupération de l'ID de traduction depuis la route
-        translation_id = req.route_params.get('translation_id')
+        # Récupération de l'ID de traduction depuis la requête
+        translation_id = req.params.get('translation_id')
         
         if not translation_id:
             return create_error_response("ID de traduction manquant dans l'URL", 400)
