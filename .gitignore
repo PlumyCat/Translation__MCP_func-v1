@@ -140,3 +140,4 @@ mcp-list-prompts-data.swagger.json
 Translator-MCP-srv.swagger.json
 *.PublishSettings
 test.http
+Solution_Bot/

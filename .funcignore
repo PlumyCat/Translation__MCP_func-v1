@@ -14,3 +14,4 @@ Translator-MCP-srv.swagger.json
 __pycache__
 Translator-MCP-srv.swagger.json
 *.PublishSettings
+Solution Bot/
