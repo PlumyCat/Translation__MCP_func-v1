@@ -1,15 +1,15 @@
 """
-Power Platform Service
-Gere les operations Power Platform via pac CLI
+Power Platform Service - Version API REST
+Gere les operations Power Platform via les APIs REST (sans pac CLI)
 """
 
 import logging
-import subprocess
-import json
-import os
 import time
+import base64
+import os
 from dataclasses import dataclass, asdict
 from typing import Optional, List
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -75,147 +75,150 @@ class SolutionImportResult:
 
 
 class PowerPlatformService:
-    """Service pour interagir avec Power Platform via pac CLI"""
+    """Service pour interagir avec Power Platform via APIs REST"""
+
+    # URLs des APIs
+    BAP_API_URL = "https://api.bap.microsoft.com"
+    LOGIN_URL = "https://login.microsoftonline.com"
+
+    # Scopes pour les differentes APIs
+    BAP_SCOPE = "https://api.bap.microsoft.com/.default"
 
     def __init__(self, credentials: PowerPlatformCredentials):
         self.credentials = credentials
-        self._pac_path = self._find_pac()
+        self._tokens = {}  # Cache des tokens
 
-    def _find_pac(self) -> str:
-        """Trouve le chemin vers pac CLI"""
-        # Essayer plusieurs emplacements possibles
-        possible_paths = [
-            "pac",  # Dans le PATH
-            "/usr/local/bin/pac",
-            os.path.expanduser("~/.dotnet/tools/pac"),
-            "C:\\Program Files\\Microsoft Power Platform CLI\\pac.exe",
-        ]
+    def _get_token(self, scope: str) -> str:
+        """Obtient un token d'acces pour le scope specifie"""
+        # Verifier le cache
+        if scope in self._tokens:
+            token_data = self._tokens[scope]
+            # Verifier si le token est encore valide (avec marge de 5 min)
+            if token_data.get("expires_at", 0) > time.time() + 300:
+                return token_data["access_token"]
 
-        for path in possible_paths:
-            try:
-                result = subprocess.run(
-                    [path, "--version"],
-                    capture_output=True,
-                    text=True,
-                    timeout=10
-                )
-                if result.returncode == 0:
-                    return path
-            except (subprocess.SubprocessError, FileNotFoundError):
-                continue
+        # Obtenir un nouveau token
+        token_url = f"{self.LOGIN_URL}/{self.credentials.tenant_id}/oauth2/v2.0/token"
 
-        raise RuntimeError("pac CLI n'est pas installe ou n'est pas dans le PATH")
+        data = {
+            "grant_type": "client_credentials",
+            "client_id": self.credentials.client_id,
+            "client_secret": self.credentials.client_secret,
+            "scope": scope
+        }
 
-    def _run_pac(self, args: List[str], timeout: int = 300) -> subprocess.CompletedProcess:
-        """Execute une commande pac"""
-        cmd = [self._pac_path] + args
-        logger.info(f"Executing: {' '.join(cmd)}")
+        logger.info(f"Getting token for scope: {scope}")
 
-        try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=timeout
-            )
-            return result
-        except subprocess.TimeoutExpired:
-            raise RuntimeError(f"Timeout apres {timeout} secondes")
+        response = requests.post(token_url, data=data, timeout=30)
 
-    def _authenticate(self, environment_url: Optional[str] = None, admin: bool = False) -> bool:
-        """Authentification au tenant"""
-        # Clear existing auth
-        self._run_pac(["auth", "clear"])
+        if response.status_code != 200:
+            error_detail = response.json().get("error_description", response.text)
+            raise RuntimeError(f"Failed to get token: {error_detail}")
 
-        # Build auth command
-        auth_args = [
-            "auth", "create",
-            "--tenant", self.credentials.tenant_id,
-            "--applicationId", self.credentials.client_id,
-            "--clientSecret", self.credentials.client_secret
-        ]
+        token_data = response.json()
+        token_data["expires_at"] = time.time() + token_data.get("expires_in", 3600)
 
-        if admin:
-            auth_args.extend(["--kind", "admin"])
-        elif environment_url:
-            auth_args.extend(["--environment", environment_url])
+        # Mettre en cache
+        self._tokens[scope] = token_data
 
-        result = self._run_pac(auth_args)
+        return token_data["access_token"]
 
-        if result.returncode != 0:
-            logger.error(f"Auth failed: {result.stderr}")
-            return False
+    def _get_bap_token(self) -> str:
+        """Obtient un token pour l'API BAP (Power Platform Admin)"""
+        return self._get_token(self.BAP_SCOPE)
 
-        return True
+    def _get_dataverse_token(self, org_url: str) -> str:
+        """Obtient un token pour l'API Dataverse"""
+        # Extraire le host de l'URL
+        org_host = org_url.replace("https://", "").replace("http://", "").rstrip("/")
+        scope = f"https://{org_host}/.default"
+        return self._get_token(scope)
 
     def list_environments(self) -> List[EnvironmentInfo]:
         """Liste les environnements Power Platform"""
-        if not self._authenticate(admin=True):
-            raise RuntimeError("Echec de l'authentification admin")
+        token = self._get_bap_token()
 
-        result = self._run_pac(["admin", "list", "--json"])
+        url = f"{self.BAP_API_URL}/providers/Microsoft.BusinessAppPlatform/scopes/admin/environments"
+        params = {"api-version": "2023-06-01"}
 
-        if result.returncode != 0:
-            raise RuntimeError(f"Echec de la liste: {result.stderr}")
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
 
-        environments = json.loads(result.stdout)
+        logger.info("Listing Power Platform environments")
 
-        return [
-            EnvironmentInfo(
-                environment_id=env.get("EnvironmentId", ""),
-                display_name=env.get("DisplayName", ""),
-                url=env.get("Url", ""),
-                dataverse_enabled=bool(env.get("Url")),
-                region=env.get("Region", ""),
-                state=env.get("State", "")
+        response = requests.get(url, headers=headers, params=params, timeout=60)
+
+        if response.status_code != 200:
+            raise RuntimeError(f"Failed to list environments: {response.status_code} - {response.text}")
+
+        data = response.json()
+        environments = []
+
+        for env in data.get("value", []):
+            properties = env.get("properties", {})
+            linked_env = properties.get("linkedEnvironmentMetadata", {})
+
+            env_info = EnvironmentInfo(
+                environment_id=env.get("name", ""),
+                display_name=properties.get("displayName", ""),
+                url=linked_env.get("instanceUrl", ""),
+                dataverse_enabled=bool(linked_env.get("instanceUrl")),
+                region=properties.get("azureRegion", ""),
+                state=properties.get("states", {}).get("management", {}).get("id", "")
             )
-            for env in environments
-        ]
+            environments.append(env_info)
+
+        return environments
 
     def check_dataverse(self, environment_id_or_name: str) -> DataverseCheckResult:
         """Verifie si Dataverse est active dans un environnement"""
         result = DataverseCheckResult(success=False, dataverse_enabled=False)
 
         try:
-            # Authentification admin pour lister les environnements
-            if not self._authenticate(admin=True):
-                result.error = "Echec de l'authentification admin"
-                return result
+            environments = self.list_environments()
 
-            # Lister les environnements
-            list_result = self._run_pac(["admin", "list", "--json"])
-
-            if list_result.returncode != 0:
-                result.error = f"Impossible de lister les environnements: {list_result.stderr}"
-                return result
-
-            environments = json.loads(list_result.stdout)
-
-            # Trouver l'environnement
+            # Chercher l'environnement par ID ou nom (recherche flexible)
             target_env = None
+            search_lower = environment_id_or_name.lower()
+
             for env in environments:
-                if (env.get("EnvironmentId") == environment_id_or_name or
-                    env.get("DisplayName") == environment_id_or_name):
+                # Match exact ou partiel
+                if (env.environment_id.lower() == search_lower or
+                    env.display_name.lower() == search_lower or
+                    search_lower in env.display_name.lower() or
+                    search_lower in env.environment_id.lower()):
                     target_env = env
                     break
 
             if not target_env:
-                result.error = f"Environnement non trouve: {environment_id_or_name}"
+                # Lister les environnements disponibles pour aider
+                available = [f"'{e.display_name}' (ID: {e.environment_id})" for e in environments[:5]]
+                result.error = f"Environnement non trouve: '{environment_id_or_name}'. Disponibles: {', '.join(available)}"
                 return result
 
-            result.environment_name = target_env.get("DisplayName", "")
-            result.environment_url = target_env.get("Url", "")
+            result.environment_name = target_env.display_name
+            result.environment_url = target_env.url
+            result.dataverse_enabled = target_env.dataverse_enabled
 
-            # Verifier si Dataverse est active (presence d'une URL)
-            if result.environment_url and ".dynamics.com" in result.environment_url:
-                result.dataverse_enabled = True
+            if target_env.dataverse_enabled and target_env.url:
+                # Essayer de recuperer plus d'infos via l'API Dataverse
+                try:
+                    token = self._get_dataverse_token(target_env.url)
+                    org_url = f"{target_env.url.rstrip('/')}/api/data/v9.2/WhoAmI"
 
-                # Se connecter pour plus de details
-                if self._authenticate(environment_url=result.environment_url):
-                    who_result = self._run_pac(["org", "who", "--json"])
-                    if who_result.returncode == 0:
-                        org_data = json.loads(who_result.stdout)
-                        result.organization_id = org_data.get("OrganizationId", "")
+                    headers = {
+                        "Authorization": f"Bearer {token}",
+                        "Accept": "application/json"
+                    }
+
+                    who_response = requests.get(org_url, headers=headers, timeout=30)
+                    if who_response.status_code == 200:
+                        who_data = who_response.json()
+                        result.organization_id = who_data.get("OrganizationId", "")
+                except Exception as e:
+                    logger.warning(f"Could not get org details: {e}")
 
             result.success = True
 
@@ -229,7 +232,7 @@ class PowerPlatformService:
         self,
         environment_name: str,
         region: str = "france",
-        environment_type: str = "Production",
+        environment_type: str = "Sandbox",
         currency: str = "EUR",
         language: int = 1036
     ) -> DataverseEnableResult:
@@ -237,10 +240,42 @@ class PowerPlatformService:
         result = DataverseEnableResult(success=False)
 
         try:
-            # Authentification admin
-            if not self._authenticate(admin=True):
-                result.error = "Echec de l'authentification admin"
-                return result
+            token = self._get_bap_token()
+
+            # Mapper les regions aux codes Power Platform
+            region_mapping = {
+                "france": "france",
+                "europe": "europe",
+                "unitedstates": "unitedstates",
+                "asia": "asia",
+                "australia": "australia",
+                "canada": "canada",
+                "japan": "japan",
+                "india": "india",
+                "unitedkingdom": "unitedkingdom",
+                "southamerica": "southamerica",
+                "germany": "germany",
+                "switzerland": "switzerland"
+            }
+
+            pp_region = region_mapping.get(region.lower(), "europe")
+
+            # Mapper les types d'environnement
+            type_mapping = {
+                "sandbox": "Sandbox",
+                "production": "Production",
+                "developer": "Developer"
+            }
+
+            pp_type = type_mapping.get(environment_type.lower(), "Sandbox")
+
+            url = f"{self.BAP_API_URL}/providers/Microsoft.BusinessAppPlatform/environments"
+            params = {"api-version": "2023-06-01"}
+
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json"
+            }
 
             # Generer un nom de domaine unique
             import re
@@ -248,44 +283,65 @@ class PowerPlatformService:
             domain_name = re.sub(r'[^a-zA-Z0-9]', '', environment_name).lower()[:20]
             domain_name = f"{domain_name}{random.randint(100, 999)}"
 
-            logger.info(f"Creating environment: {environment_name}, domain: {domain_name}")
+            # Corps de la requete pour creer l'environnement
+            body = {
+                "properties": {
+                    "displayName": environment_name,
+                    "environmentSku": pp_type,
+                    "linkedEnvironmentMetadata": {
+                        "baseLanguage": language,
+                        "currency": {
+                            "code": currency
+                        },
+                        "domainName": domain_name
+                    }
+                },
+                "location": pp_region
+            }
 
-            # Creer l'environnement
-            create_result = self._run_pac([
-                "admin", "create",
-                "--name", environment_name,
-                "--type", environment_type,
-                "--region", region,
-                "--currency", currency,
-                "--language", str(language),
-                "--domain", domain_name
-            ], timeout=600)
+            logger.info(f"Creating environment: {environment_name} in {pp_region}")
 
-            if create_result.returncode != 0:
-                result.error = f"Echec de la creation: {create_result.stderr}"
+            response = requests.post(url, headers=headers, params=params, json=body, timeout=120)
+
+            if response.status_code not in [200, 201, 202]:
+                error_msg = response.text
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get("error", {}).get("message", response.text)
+                except:
+                    pass
+                result.error = f"Failed to create environment: {error_msg}"
                 return result
 
-            # Attendre que l'environnement soit pret
+            # L'environnement est en cours de creation
+            env_data = response.json()
+            env_id = env_data.get("name", "")
+
+            logger.info(f"Environment creation initiated: {env_id}")
+
+            # Attendre que l'environnement soit pret (polling)
             max_attempts = 30
             for attempt in range(max_attempts):
                 time.sleep(10)
                 logger.info(f"Waiting for environment... attempt {attempt + 1}/{max_attempts}")
 
-                list_result = self._run_pac(["admin", "list", "--json"])
-                if list_result.returncode == 0:
-                    environments = json.loads(list_result.stdout)
+                try:
+                    environments = self.list_environments()
                     new_env = next(
-                        (e for e in environments if e.get("DisplayName") == environment_name),
+                        (e for e in environments if e.environment_id == env_id or
+                         e.display_name.lower() == environment_name.lower()),
                         None
                     )
 
-                    if new_env and new_env.get("Url"):
-                        result.environment_id = new_env.get("EnvironmentId", "")
-                        result.environment_name = new_env.get("DisplayName", "")
-                        result.environment_url = new_env.get("Url", "")
+                    if new_env and new_env.url:
+                        result.environment_id = new_env.environment_id
+                        result.environment_name = new_env.display_name
+                        result.environment_url = new_env.url
                         result.dataverse_enabled = True
                         result.success = True
                         return result
+                except Exception as e:
+                    logger.warning(f"Error checking environment status: {e}")
 
             result.error = "Timeout: l'environnement n'est pas pret apres 5 minutes"
 
@@ -301,7 +357,7 @@ class PowerPlatformService:
         solution_path: str,
         overwrite: bool = True
     ) -> SolutionImportResult:
-        """Importe une solution dans un environnement Dataverse"""
+        """Importe une solution dans un environnement Dataverse depuis un fichier"""
         result = SolutionImportResult(success=False)
 
         try:
@@ -310,57 +366,68 @@ class PowerPlatformService:
                 result.error = f"Fichier solution non trouve: {solution_path}"
                 return result
 
-            # Authentification
-            if not self._authenticate(environment_url=environment_url):
-                result.error = "Echec de l'authentification"
-                return result
+            # Lire le fichier solution
+            with open(solution_path, "rb") as f:
+                solution_data = f.read()
 
-            # Verifier la connexion Dataverse
-            who_result = self._run_pac(["org", "who", "--json"])
-            if who_result.returncode != 0:
-                result.error = "Impossible de se connecter a Dataverse"
-                return result
-
-            # Construire la commande d'import
-            import_args = [
-                "solution", "import",
-                "--path", solution_path,
-                "--activate-plugins"
-            ]
-
-            if overwrite:
-                import_args.append("--force-overwrite")
-
-            # Executer l'import
-            import_result = self._run_pac(import_args, timeout=600)
-
-            if import_result.returncode != 0:
-                error_msg = import_result.stderr or import_result.stdout
-
-                if "same version already exists" in error_msg:
-                    result.error = "La solution existe deja avec la meme version"
-                elif "Missing dependencies" in error_msg:
-                    result.error = "Dependances manquantes"
-                else:
-                    result.error = f"Echec de l'import: {error_msg}"
-                return result
-
-            # Parser le resultat
-            import re
-            output = import_result.stdout
-
-            name_match = re.search(r"Solution (.+) imported", output)
-            if name_match:
-                result.solution_name = name_match.group(1)
-
-            version_match = re.search(r"Version: (.+)", output)
-            if version_match:
-                result.solution_version = version_match.group(1)
-
-            result.success = True
+            return self._import_solution_data(environment_url, solution_data, overwrite)
 
         except Exception as e:
             result.error = str(e)
             logger.error(f"import_solution error: {e}")
+            return result
+
+    def _import_solution_data(
+        self,
+        environment_url: str,
+        solution_data: bytes,
+        overwrite: bool = True
+    ) -> SolutionImportResult:
+        """Importe une solution dans un environnement Dataverse"""
+        result = SolutionImportResult(success=False)
+
+        try:
+            token = self._get_dataverse_token(environment_url)
+
+            # Encoder la solution en base64
+            solution_base64 = base64.b64encode(solution_data).decode("utf-8")
+
+            # URL pour l'import de solution
+            import_url = f"{environment_url.rstrip('/')}/api/data/v9.2/ImportSolution"
+
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "OData-MaxVersion": "4.0",
+                "OData-Version": "4.0"
+            }
+
+            body = {
+                "OverwriteUnmanagedCustomizations": overwrite,
+                "PublishWorkflows": True,
+                "CustomizationFile": solution_base64
+            }
+
+            logger.info(f"Importing solution to {environment_url}")
+
+            response = requests.post(import_url, headers=headers, json=body, timeout=600)
+
+            if response.status_code not in [200, 204]:
+                error_msg = response.text
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get("error", {}).get("message", response.text)
+                except:
+                    pass
+                result.error = f"Failed to import solution: {error_msg}"
+                return result
+
+            result.success = True
+            result.solution_name = "Solution importee"
+
+        except Exception as e:
+            result.error = str(e)
+            logger.error(f"_import_solution_data error: {e}")
 
         return result
