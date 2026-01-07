@@ -26,6 +26,37 @@
     }
   ],
   "paths": {
+    "/bootstrap-client": {
+      "post": {
+        "operationId": "BootstrapClient",
+        "summary": "Creer le Service Principal chez le client",
+        "description": "Cree automatiquement l'App Registration, le Service Principal et assigne le role Contributor sur la subscription",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/BootstrapRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Service Principal cree avec succes",
+            "schema": {
+              "$ref": "#/definitions/BootstrapResult"
+            }
+          },
+          "400": {
+            "description": "Parametres invalides"
+          },
+          "500": {
+            "description": "Erreur lors de la creation"
+          }
+        }
+      }
+    },
     "/validate-credentials": {
       "post": {
         "operationId": "ValidateCredentials",
@@ -342,6 +373,94 @@
     }
   },
   "definitions": {
+    "BootstrapRequest": {
+      "type": "object",
+      "required": ["tenantId", "subscriptionId"],
+      "properties": {
+        "tenantId": {
+          "type": "string",
+          "description": "ID du tenant Azure AD du client",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "subscriptionId": {
+          "type": "string",
+          "description": "ID de la souscription Azure du client",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "adminUsername": {
+          "type": "string",
+          "description": "Email de l'admin Azure (Global Admin)"
+        },
+        "adminPassword": {
+          "type": "string",
+          "description": "Mot de passe de l'admin",
+          "x-ms-secret": true
+        },
+        "adminClientId": {
+          "type": "string",
+          "description": "Client ID d'un Service Principal admin existant (alternative a username/password)"
+        },
+        "adminClientSecret": {
+          "type": "string",
+          "description": "Secret du Service Principal admin",
+          "x-ms-secret": true
+        },
+        "appName": {
+          "type": "string",
+          "description": "Nom de l'application a creer",
+          "default": "SP-Translation-Deployment"
+        }
+      }
+    },
+    "BootstrapResult": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "message": {
+          "type": "string"
+        },
+        "credentials": {
+          "type": "object",
+          "properties": {
+            "tenantId": {
+              "type": "string"
+            },
+            "subscriptionId": {
+              "type": "string"
+            },
+            "clientId": {
+              "type": "string"
+            },
+            "clientSecret": {
+              "type": "string",
+              "x-ms-secret": true
+            },
+            "secretExpiresAt": {
+              "type": "string"
+            }
+          }
+        },
+        "details": {
+          "type": "object",
+          "properties": {
+            "appName": {
+              "type": "string"
+            },
+            "appObjectId": {
+              "type": "string"
+            },
+            "servicePrincipalId": {
+              "type": "string"
+            }
+          }
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    },
     "AzureCredentials": {
       "type": "object",
       "required": ["subscriptionId", "tenantId", "clientId", "clientSecret"],
