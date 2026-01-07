@@ -1,0 +1,340 @@
+# Topic: Demarrer un deploiement
+# Copilot Studio Topic Definition
+
+name: StartDeployment
+displayName: Demarrer un deploiement
+description: Guide le technicien pour deployer le service de traduction pour un nouveau client
+
+triggers:
+  phrases:
+    - deployer
+    - nouveau deploiement
+    - installer
+    - deploiement
+    - je veux deployer
+    - lancer un deploiement
+    - configurer un nouveau client
+    - nouveau client
+
+variables:
+  - name: clientName
+    type: string
+    description: Nom du client (sans espaces, caracteres speciaux)
+  - name: region
+    type: string
+    description: Region Azure de deploiement
+  - name: subscriptionId
+    type: string
+    description: ID de la souscription Azure
+  - name: tenantId
+    type: string
+    description: ID du tenant Azure AD
+  - name: clientId
+    type: string
+    description: ID du Service Principal
+  - name: clientSecret
+    type: string
+    description: Secret du Service Principal
+    sensitive: true
+  - name: deploymentId
+    type: string
+    description: ID unique du deploiement
+  - name: validationResult
+    type: object
+    description: Resultat de la validation des credentials
+  - name: deploymentResult
+    type: object
+    description: Resultat du deploiement
+
+nodes:
+  - id: welcome
+    type: message
+    content: |
+      Bienvenue dans l'assistant de deploiement du service de traduction.
+
+      Je vais vous guider etape par etape pour deployer le service pour un nouveau client.
+
+      Avant de commencer, assurez-vous d'avoir:
+      - Les credentials Azure du client (Service Principal)
+      - Le nom du client
+      - La region de deploiement souhaitee
+    next: askClientName
+
+  - id: askClientName
+    type: question
+    prompt: Quel est le nom du client ? (Utilisez un nom court sans espaces, ex: contoso, acme-corp)
+    variable: clientName
+    validation:
+      pattern: "^[a-z0-9-]+$"
+      errorMessage: Le nom doit contenir uniquement des lettres minuscules, chiffres et tirets.
+    next: askRegion
+
+  - id: askRegion
+    type: question
+    prompt: |
+      Dans quelle region Azure voulez-vous deployer ?
+    choices:
+      - label: France Central (recommande pour clients FR)
+        value: francecentral
+      - label: West Europe (Pays-Bas)
+        value: westeurope
+      - label: North Europe (Irlande)
+        value: northeurope
+      - label: East US
+        value: eastus
+      - label: West US
+        value: westus
+    variable: region
+    next: askSubscriptionId
+
+  - id: askSubscriptionId
+    type: question
+    prompt: |
+      Maintenant, j'ai besoin des credentials Azure du client.
+
+      Quel est le **Subscription ID** ?
+      (Format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+    variable: subscriptionId
+    validation:
+      pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+      errorMessage: Format invalide. Le Subscription ID doit etre un UUID.
+    next: askTenantId
+
+  - id: askTenantId
+    type: question
+    prompt: |
+      Quel est le **Tenant ID** (Azure AD Directory ID) ?
+      (Format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+    variable: tenantId
+    validation:
+      pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+      errorMessage: Format invalide. Le Tenant ID doit etre un UUID.
+    next: askClientId
+
+  - id: askClientId
+    type: question
+    prompt: |
+      Quel est le **Client ID** du Service Principal ?
+      (Format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+    variable: clientId
+    validation:
+      pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+      errorMessage: Format invalide. Le Client ID doit etre un UUID.
+    next: askClientSecret
+
+  - id: askClientSecret
+    type: question
+    prompt: |
+      Quel est le **Client Secret** du Service Principal ?
+      (Cette information est sensible et ne sera pas stockee)
+    variable: clientSecret
+    inputType: password
+    next: validateCredentials
+
+  - id: validateCredentials
+    type: action
+    action: ValidateCredentials
+    inputs:
+      subscriptionId: "=variables.subscriptionId"
+      tenantId: "=variables.tenantId"
+      clientId: "=variables.clientId"
+      clientSecret: "=variables.clientSecret"
+    outputs:
+      result: validationResult
+    next: checkValidation
+
+  - id: checkValidation
+    type: condition
+    conditions:
+      - expression: "=variables.validationResult.success == true"
+        next: showSummary
+      - expression: "=variables.validationResult.success == false"
+        next: validationError
+
+  - id: validationError
+    type: message
+    content: |
+      Les credentials ne sont pas valides.
+
+      Erreur: {validationResult.error}
+
+      Veuillez verifier:
+      - Le Service Principal existe et n'est pas expire
+      - Il a les droits Contributor sur la souscription
+      - Le Client Secret est correct
+
+      Voulez-vous reessayer ?
+    next: retryOrCancel
+
+  - id: retryOrCancel
+    type: question
+    prompt: Que souhaitez-vous faire ?
+    choices:
+      - label: Reessayer avec de nouveaux credentials
+        value: retry
+        next: askSubscriptionId
+      - label: Annuler le deploiement
+        value: cancel
+        next: cancelled
+
+  - id: showSummary
+    type: message
+    content: |
+      Les credentials sont valides !
+
+      **Recapitulatif du deploiement:**
+
+      | Element | Valeur |
+      |---------|--------|
+      | Client | {clientName} |
+      | Region | {region} |
+      | Resource Group | rg-translation-{clientName} |
+      | Storage Account | sttranslation{clientName} |
+      | Translator | translator-{clientName} |
+      | Function App | func-translation-{clientName} |
+
+      **Ressources qui seront creees:**
+      - 1 Resource Group
+      - 1 Storage Account (avec 2 containers)
+      - 1 Azure Translator (S1)
+      - 1 Azure Functions App (Consumption)
+      - 1 Application Insights
+    next: confirmDeployment
+
+  - id: confirmDeployment
+    type: question
+    prompt: Voulez-vous lancer le deploiement ?
+    choices:
+      - label: Oui, lancer le deploiement
+        value: yes
+        next: startDeployment
+      - label: Non, annuler
+        value: no
+        next: cancelled
+
+  - id: startDeployment
+    type: action
+    action: FullDeployment
+    inputs:
+      clientName: "=variables.clientName"
+      region: "=variables.region"
+      subscriptionId: "=variables.subscriptionId"
+      tenantId: "=variables.tenantId"
+      clientId: "=variables.clientId"
+      clientSecret: "=variables.clientSecret"
+    outputs:
+      result: deploymentResult
+    progressMessages:
+      - "[1/5] Creation du Resource Group..."
+      - "[2/5] Creation du Storage Account..."
+      - "[3/5] Creation du Translator..."
+      - "[4/5] Deploiement des Functions..."
+      - "[5/5] Configuration des variables d'environnement..."
+    next: checkDeploymentResult
+
+  - id: checkDeploymentResult
+    type: condition
+    conditions:
+      - expression: "=variables.deploymentResult.success == true"
+        next: deploymentSuccess
+      - expression: "=variables.deploymentResult.success == false"
+        next: deploymentError
+
+  - id: deploymentSuccess
+    type: message
+    content: |
+      **Deploiement termine avec succes !**
+
+      **Informations de connexion:**
+
+      | Information | Valeur |
+      |-------------|--------|
+      | URL de l'API | {deploymentResult.functionAppUrl} |
+      | Cle API | {deploymentResult.functionKey} |
+      | Resource Group | {deploymentResult.resourceGroup} |
+
+      **Endpoints disponibles:**
+      - `GET /api/health` - Verification de sante
+      - `POST /api/start_translation` - Demarrer une traduction
+      - `GET /api/check_status` - Verifier le statut
+      - `GET /api/get_result` - Recuperer le resultat
+      - `GET /api/languages` - Langues supportees
+      - `GET /api/formats` - Formats supportes
+
+      **Prochaines etapes:**
+      1. Communiquer l'URL et la cle API au client
+      2. Configurer le connector Power Apps si necessaire
+      3. Tester avec un document de test
+    next: askValidation
+
+  - id: askValidation
+    type: question
+    prompt: Voulez-vous que je teste le deploiement maintenant ?
+    choices:
+      - label: Oui, tester
+        value: yes
+        next: runValidation
+      - label: Non, terminer
+        value: no
+        next: finished
+
+  - id: runValidation
+    type: action
+    action: ValidateDeployment
+    inputs:
+      functionAppUrl: "=variables.deploymentResult.functionAppUrl"
+      functionKey: "=variables.deploymentResult.functionKey"
+    outputs:
+      result: validationResult
+    next: showValidationResult
+
+  - id: showValidationResult
+    type: message
+    content: |
+      **Resultat des tests:**
+
+      | Test | Resultat |
+      |------|----------|
+      | Health Check | {validationResult.healthCheck} |
+      | Languages Endpoint | {validationResult.languagesCheck} |
+      | Formats Endpoint | {validationResult.formatsCheck} |
+      | Storage Connection | {validationResult.storageCheck} |
+      | Translator Connection | {validationResult.translatorCheck} |
+
+      {validationResult.summary}
+    next: finished
+
+  - id: deploymentError
+    type: message
+    content: |
+      **Erreur lors du deploiement**
+
+      Etape: {deploymentResult.failedStep}
+      Erreur: {deploymentResult.error}
+
+      Les ressources partiellement creees ont ete conservees pour analyse.
+      Resource Group: rg-translation-{clientName}
+
+      **Actions recommandees:**
+      1. Verifier les quotas de la souscription
+      2. Verifier les permissions du Service Principal
+      3. Consulter les logs dans le portail Azure
+    next: finished
+
+  - id: cancelled
+    type: message
+    content: |
+      Deploiement annule.
+
+      Vous pouvez relancer un deploiement a tout moment en disant "deployer".
+    next: finished
+
+  - id: finished
+    type: message
+    content: |
+      Merci d'avoir utilise l'assistant de deploiement.
+
+      **Autres commandes disponibles:**
+      - "statut" - Verifier le statut d'un deploiement
+      - "valider" - Tester un deploiement existant
+      - "liste" - Voir l'historique des deploiements
