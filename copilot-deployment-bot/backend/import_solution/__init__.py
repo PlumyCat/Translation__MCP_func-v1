@@ -12,11 +12,27 @@ from shared.powerplatform_service import PowerPlatformCredentials, PowerPlatform
 
 logger = logging.getLogger(__name__)
 
-# Chemin vers la solution embarquee
-SOLUTION_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)),
-    "..", "solution", "TranslationDeploymentBot.zip"
-)
+# Chemins possibles vers la solution embarquee
+def find_solution_path():
+    """Cherche le fichier solution dans plusieurs emplacements"""
+    base_dir = os.path.dirname(os.path.dirname(__file__))
+
+    # Liste des chemins et noms possibles
+    possible_paths = [
+        os.path.join(base_dir, "..", "Solution", "BotCopilotTraducteur_1_0_0_2.zip"),
+        os.path.join(base_dir, "..", "solution", "BotCopilotTraducteur_1_0_0_2.zip"),
+        os.path.join(base_dir, "..", "Solution", "TranslationDeploymentBot.zip"),
+        os.path.join(base_dir, "..", "solution", "TranslationDeploymentBot.zip"),
+    ]
+
+    for path in possible_paths:
+        if os.path.exists(path):
+            return path
+
+    # Retourner le chemin par defaut meme s'il n'existe pas
+    return possible_paths[0]
+
+SOLUTION_PATH = find_solution_path()
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
