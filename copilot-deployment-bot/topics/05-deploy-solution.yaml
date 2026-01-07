@@ -1,0 +1,396 @@
+# Topic: Deployer la solution Power Platform
+# Copilot Studio Topic Definition
+
+name: DeploySolution
+displayName: Deployer la solution Power Platform
+description: Guide le technicien pour deployer la solution Copilot chez le client via pac CLI
+
+triggers:
+  phrases:
+    - deployer la solution
+    - importer la solution
+    - installer copilot
+    - deployer power platform
+    - installer le bot
+    - solution power apps
+    - pac deploy
+
+variables:
+  - name: tenantId
+    type: string
+    description: ID du tenant Azure AD du client
+  - name: clientId
+    type: string
+    description: ID du Service Principal
+  - name: clientSecret
+    type: string
+    description: Secret du Service Principal
+    sensitive: true
+  - name: environmentName
+    type: string
+    description: Nom de l'environnement Power Platform
+  - name: environmentUrl
+    type: string
+    description: URL de l'environnement Dataverse
+  - name: region
+    type: string
+    description: Region Power Platform
+  - name: dataverseCheck
+    type: object
+    description: Resultat de la verification Dataverse
+  - name: enableResult
+    type: object
+    description: Resultat de l'activation Dataverse
+  - name: importResult
+    type: object
+    description: Resultat de l'import de la solution
+
+nodes:
+  - id: welcome
+    type: message
+    content: |
+      **Deploiement de la Solution Power Platform**
+
+      Je vais vous aider a deployer la solution Copilot Studio chez le client.
+
+      **Prerequis:**
+      - Power Platform CLI (pac) installe
+      - Service Principal avec les roles:
+        - Power Platform Administrator
+        - Dynamics 365 Administrator
+
+      Le processus va:
+      1. Verifier si Dataverse est active
+      2. Activer Dataverse si necessaire
+      3. Importer la solution du bot
+    next: askTenantId
+
+  - id: askTenantId
+    type: question
+    prompt: |
+      Quel est le **Tenant ID** du client ?
+      (Format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+    variable: tenantId
+    validation:
+      pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+      errorMessage: Format invalide. Le Tenant ID doit etre un UUID.
+    next: askClientId
+
+  - id: askClientId
+    type: question
+    prompt: |
+      Quel est le **Client ID** du Service Principal ?
+    variable: clientId
+    validation:
+      pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+      errorMessage: Format invalide.
+    next: askClientSecret
+
+  - id: askClientSecret
+    type: question
+    prompt: |
+      Quel est le **Client Secret** du Service Principal ?
+    variable: clientSecret
+    inputType: password
+    next: askEnvironmentChoice
+
+  - id: askEnvironmentChoice
+    type: question
+    prompt: |
+      Comment voulez-vous proceder ?
+    choices:
+      - label: Utiliser un environnement existant
+        value: existing
+        next: askEnvironmentName
+      - label: Creer un nouvel environnement avec Dataverse
+        value: new
+        next: askNewEnvironmentName
+
+  # Flow pour environnement existant
+  - id: askEnvironmentName
+    type: question
+    prompt: |
+      Quel est le nom de l'environnement Power Platform existant ?
+    variable: environmentName
+    next: checkDataverse
+
+  - id: checkDataverse
+    type: action
+    action: CheckDataverse
+    inputs:
+      environmentName: "=variables.environmentName"
+      tenantId: "=variables.tenantId"
+      clientId: "=variables.clientId"
+      clientSecret: "=variables.clientSecret"
+    outputs:
+      result: dataverseCheck
+    next: evaluateDataverse
+
+  - id: evaluateDataverse
+    type: condition
+    conditions:
+      - expression: "=variables.dataverseCheck.success == true && variables.dataverseCheck.dataverseEnabled == true"
+        next: dataverseReady
+      - expression: "=variables.dataverseCheck.success == true && variables.dataverseCheck.dataverseEnabled == false"
+        next: dataverseNotEnabled
+      - expression: "=variables.dataverseCheck.success == false"
+        next: checkError
+
+  - id: dataverseReady
+    type: message
+    content: |
+      Dataverse est active dans l'environnement "{dataverseCheck.environmentName}".
+
+      URL: {dataverseCheck.environmentUrl}
+    next: setEnvironmentUrl
+
+  - id: setEnvironmentUrl
+    type: setVariable
+    variable: environmentUrl
+    value: "=variables.dataverseCheck.environmentUrl"
+    next: confirmImport
+
+  - id: dataverseNotEnabled
+    type: message
+    content: |
+      Dataverse n'est **pas active** dans l'environnement "{dataverseCheck.environmentName}".
+
+      Pour activer Dataverse, vous avez deux options:
+
+      **Option 1: Via le portail**
+      1. Aller sur https://admin.powerplatform.microsoft.com
+      2. Selectionner l'environnement
+      3. Cliquer sur "Add database"
+
+      **Option 2: Creer un nouvel environnement**
+      Je peux creer un nouvel environnement avec Dataverse active.
+    next: askEnableOption
+
+  - id: askEnableOption
+    type: question
+    prompt: Que souhaitez-vous faire ?
+    choices:
+      - label: Creer un nouvel environnement avec Dataverse
+        value: create
+        next: askNewEnvironmentName
+      - label: J'active manuellement et je reviens
+        value: manual
+        next: waitManual
+      - label: Annuler
+        value: cancel
+        next: cancelled
+
+  - id: waitManual
+    type: message
+    content: |
+      D'accord. Une fois Dataverse active manuellement, revenez et dites "deployer la solution".
+    next: finished
+
+  # Flow pour nouvel environnement
+  - id: askNewEnvironmentName
+    type: question
+    prompt: |
+      Quel nom voulez-vous donner au nouvel environnement ?
+      (Ex: Translation-Prod, Contoso-Translation)
+    variable: environmentName
+    next: askRegion
+
+  - id: askRegion
+    type: question
+    prompt: |
+      Dans quelle region creer l'environnement ?
+    choices:
+      - label: France
+        value: france
+      - label: Europe (Pays-Bas)
+        value: europe
+      - label: Allemagne
+        value: germany
+      - label: Suisse
+        value: switzerland
+      - label: Royaume-Uni
+        value: unitedkingdom
+    variable: region
+    next: confirmCreate
+
+  - id: confirmCreate
+    type: question
+    prompt: |
+      **Creation de l'environnement:**
+      - Nom: {environmentName}
+      - Region: {region}
+      - Type: Production
+      - Dataverse: Active
+
+      La creation peut prendre 2-5 minutes.
+      Voulez-vous continuer ?
+    choices:
+      - label: Oui, creer l'environnement
+        value: yes
+        next: createEnvironment
+      - label: Non, annuler
+        value: no
+        next: cancelled
+
+  - id: createEnvironment
+    type: action
+    action: EnableDataverse
+    inputs:
+      environmentName: "=variables.environmentName"
+      tenantId: "=variables.tenantId"
+      clientId: "=variables.clientId"
+      clientSecret: "=variables.clientSecret"
+      region: "=variables.region"
+      environmentType: "Production"
+      currency: "EUR"
+      language: 1036
+    outputs:
+      result: enableResult
+    progressMessages:
+      - "Creation de l'environnement en cours..."
+      - "Activation de Dataverse..."
+      - "Configuration..."
+    next: evaluateCreate
+
+  - id: evaluateCreate
+    type: condition
+    conditions:
+      - expression: "=variables.enableResult.success == true"
+        next: environmentCreated
+      - expression: "=variables.enableResult.success == false"
+        next: createError
+
+  - id: environmentCreated
+    type: message
+    content: |
+      **Environnement cree avec succes !**
+
+      - Nom: {enableResult.environmentName}
+      - URL: {enableResult.environmentUrl}
+      - Dataverse: Active
+    next: setNewEnvironmentUrl
+
+  - id: setNewEnvironmentUrl
+    type: setVariable
+    variable: environmentUrl
+    value: "=variables.enableResult.environmentUrl"
+    next: confirmImport
+
+  - id: createError
+    type: message
+    content: |
+      **Erreur lors de la creation de l'environnement**
+
+      {enableResult.error}
+
+      **Solutions possibles:**
+      - Verifier que le Service Principal a le role "Power Platform Administrator"
+      - Verifier les quotas d'environnements disponibles
+      - Essayer avec un nom different
+    next: finished
+
+  # Import de la solution
+  - id: confirmImport
+    type: question
+    prompt: |
+      Pret a importer la solution dans:
+      **{environmentUrl}**
+
+      Voulez-vous continuer ?
+    choices:
+      - label: Oui, importer la solution
+        value: yes
+        next: importSolution
+      - label: Non, annuler
+        value: no
+        next: cancelled
+
+  - id: importSolution
+    type: action
+    action: ImportSolution
+    inputs:
+      environmentUrl: "=variables.environmentUrl"
+      tenantId: "=variables.tenantId"
+      clientId: "=variables.clientId"
+      clientSecret: "=variables.clientSecret"
+      overwrite: true
+    outputs:
+      result: importResult
+    progressMessages:
+      - "Connexion a Dataverse..."
+      - "Upload de la solution..."
+      - "Import en cours..."
+      - "Activation des composants..."
+    next: evaluateImport
+
+  - id: evaluateImport
+    type: condition
+    conditions:
+      - expression: "=variables.importResult.success == true"
+        next: importSuccess
+      - expression: "=variables.importResult.success == false"
+        next: importError
+
+  - id: importSuccess
+    type: message
+    content: |
+      **Solution importee avec succes !**
+
+      | Information | Valeur |
+      |-------------|--------|
+      | Solution | {importResult.solutionName} |
+      | Version | {importResult.solutionVersion} |
+      | Environnement | {environmentUrl} |
+
+      **Prochaines etapes:**
+      1. Ouvrir Copilot Studio: https://copilotstudio.microsoft.com
+      2. Selectionner l'environnement
+      3. Configurer les connexions du Custom Connector
+      4. Publier le bot
+
+      **Pour configurer le Custom Connector:**
+      - Aller dans Power Apps > Connecteurs personnalises
+      - Configurer l'URL du backend de deploiement
+      - Ajouter la Function Key
+    next: finished
+
+  - id: importError
+    type: message
+    content: |
+      **Erreur lors de l'import de la solution**
+
+      {importResult.error}
+
+      **Solutions possibles:**
+      - Verifier que le fichier ZIP de la solution est present
+      - Verifier les dependances de la solution
+      - Essayer avec l'option "overwrite"
+    next: finished
+
+  - id: checkError
+    type: message
+    content: |
+      **Erreur lors de la verification**
+
+      {dataverseCheck.error}
+
+      Verifiez:
+      - Le nom de l'environnement est correct
+      - Le Service Principal a les permissions necessaires
+    next: finished
+
+  - id: cancelled
+    type: message
+    content: |
+      Operation annulee.
+
+      Vous pouvez relancer avec "deployer la solution".
+    next: finished
+
+  - id: finished
+    type: message
+    content: |
+      **Autres commandes disponibles:**
+      - "deployer" - Deployer le service de traduction Azure
+      - "statut" - Verifier un deploiement
+      - "liste" - Historique des deploiements

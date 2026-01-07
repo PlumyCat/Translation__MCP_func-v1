@@ -339,6 +339,81 @@
           }
         }
       }
+    },
+    "/check-dataverse": {
+      "post": {
+        "operationId": "CheckDataverse",
+        "summary": "Verifier si Dataverse est active",
+        "description": "Verifie si Dataverse est active dans un environnement Power Platform",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CheckDataverseRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resultat de la verification",
+            "schema": {
+              "$ref": "#/definitions/CheckDataverseResult"
+            }
+          }
+        }
+      }
+    },
+    "/enable-dataverse": {
+      "post": {
+        "operationId": "EnableDataverse",
+        "summary": "Activer Dataverse",
+        "description": "Cree un nouvel environnement Power Platform avec Dataverse active",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/EnableDataverseRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resultat de l'activation",
+            "schema": {
+              "$ref": "#/definitions/EnableDataverseResult"
+            }
+          }
+        }
+      }
+    },
+    "/import-solution": {
+      "post": {
+        "operationId": "ImportSolution",
+        "summary": "Importer la solution Power Platform",
+        "description": "Importe la solution du bot dans un environnement Dataverse",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ImportSolutionRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resultat de l'import",
+            "schema": {
+              "$ref": "#/definitions/ImportSolutionResult"
+            }
+          }
+        }
+      }
     }
   },
   "definitions": {
@@ -875,6 +950,169 @@
           "x-ms-secret": true
         },
         "resourceGroup": {
+          "type": "string"
+        }
+      }
+    },
+    "CheckDataverseRequest": {
+      "type": "object",
+      "required": ["tenantId", "clientId", "clientSecret"],
+      "properties": {
+        "environmentId": {
+          "type": "string",
+          "description": "ID de l'environnement Power Platform"
+        },
+        "environmentName": {
+          "type": "string",
+          "description": "Nom de l'environnement (alternatif a environmentId)"
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "ID du tenant Azure AD"
+        },
+        "clientId": {
+          "type": "string",
+          "description": "ID du Service Principal"
+        },
+        "clientSecret": {
+          "type": "string",
+          "description": "Secret du Service Principal",
+          "x-ms-secret": true
+        }
+      }
+    },
+    "CheckDataverseResult": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "dataverseEnabled": {
+          "type": "boolean",
+          "description": "True si Dataverse est active"
+        },
+        "environmentName": {
+          "type": "string"
+        },
+        "environmentUrl": {
+          "type": "string"
+        },
+        "organizationId": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "EnableDataverseRequest": {
+      "type": "object",
+      "required": ["environmentName", "tenantId", "clientId", "clientSecret"],
+      "properties": {
+        "environmentName": {
+          "type": "string",
+          "description": "Nom du nouvel environnement"
+        },
+        "tenantId": {
+          "type": "string"
+        },
+        "clientId": {
+          "type": "string"
+        },
+        "clientSecret": {
+          "type": "string",
+          "x-ms-secret": true
+        },
+        "region": {
+          "type": "string",
+          "description": "Region Power Platform",
+          "enum": ["france", "europe", "unitedstates", "asia", "australia", "canada", "japan", "india", "unitedkingdom", "southamerica", "germany", "switzerland"],
+          "default": "france"
+        },
+        "environmentType": {
+          "type": "string",
+          "enum": ["Sandbox", "Production", "Developer"],
+          "default": "Production"
+        },
+        "currency": {
+          "type": "string",
+          "default": "EUR"
+        },
+        "language": {
+          "type": "integer",
+          "description": "Code langue (1036=FR, 1033=EN)",
+          "default": 1036
+        }
+      }
+    },
+    "EnableDataverseResult": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "environmentId": {
+          "type": "string"
+        },
+        "environmentName": {
+          "type": "string"
+        },
+        "environmentUrl": {
+          "type": "string"
+        },
+        "dataverseEnabled": {
+          "type": "boolean"
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "ImportSolutionRequest": {
+      "type": "object",
+      "required": ["environmentUrl", "tenantId", "clientId", "clientSecret"],
+      "properties": {
+        "environmentUrl": {
+          "type": "string",
+          "description": "URL de l'environnement Dataverse"
+        },
+        "tenantId": {
+          "type": "string"
+        },
+        "clientId": {
+          "type": "string"
+        },
+        "clientSecret": {
+          "type": "string",
+          "x-ms-secret": true
+        },
+        "solutionPath": {
+          "type": "string",
+          "description": "Chemin vers le fichier ZIP (optionnel, utilise la solution embarquee par defaut)"
+        },
+        "overwrite": {
+          "type": "boolean",
+          "description": "Ecraser si la solution existe deja",
+          "default": true
+        }
+      }
+    },
+    "ImportSolutionResult": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "solutionName": {
+          "type": "string"
+        },
+        "solutionVersion": {
+          "type": "string"
+        },
+        "importJobId": {
+          "type": "string"
+        },
+        "error": {
           "type": "string"
         }
       }

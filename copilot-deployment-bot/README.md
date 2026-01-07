@@ -84,6 +84,12 @@ az ad sp create-for-rbac \
 - Declencheur: "liste", "historique", "deploiements"
 - Affiche les deploiements effectues
 
+### 5. Deployer la solution Power Platform
+- Declencheur: "deployer la solution", "importer la solution", "pac deploy"
+- Verifie si Dataverse est active
+- Active Dataverse si necessaire (cree un nouvel environnement)
+- Importe la solution du bot chez le client
+
 ## Installation
 
 ### 1. Deployer le Backend API
@@ -204,6 +210,65 @@ Bot: Deploiement en cours...
 ### Erreur "Resource already exists"
 - Un deploiement existe deja pour ce client
 - Utiliser un nom different ou supprimer les ressources existantes
+
+### Erreur "Dataverse not enabled"
+- L'environnement Power Platform n'a pas Dataverse active
+- Utiliser le topic "deployer la solution" pour creer un nouvel environnement
+- Ou activer manuellement via le Power Platform Admin Center
+
+### Erreur "pac CLI not found"
+- Installer Power Platform CLI: `dotnet tool install --global Microsoft.PowerApps.CLI.Tool`
+- Ou telecharger depuis: https://aka.ms/PowerAppsCLI
+
+## Deploiement de la Solution via pac CLI
+
+### Pre-requis
+1. Power Platform CLI installe (`pac --version`)
+2. Service Principal avec les roles:
+   - Power Platform Administrator
+   - Dynamics 365 Administrator
+
+### Deploiement manuel
+
+```powershell
+# Verifier/Activer Dataverse
+.\scripts\check-dataverse.ps1 -EnvironmentId "env-name" -TenantId "xxx" ...
+
+# Creer un environnement avec Dataverse
+.\scripts\enable-dataverse.ps1 -EnvironmentName "Translation-Prod" -Region "france" ...
+
+# Importer la solution
+.\scripts\import-solution.ps1 -EnvironmentUrl "https://xxx.crm4.dynamics.com" ...
+```
+
+### Deploiement complet automatise
+
+```powershell
+# Deploie tout en une seule commande
+.\scripts\deploy-solution.ps1 `
+    -EnvironmentUrl "https://xxx.crm4.dynamics.com" `
+    -TenantId "xxx" `
+    -ClientId "xxx" `
+    -ClientSecret $secret
+```
+
+### Ajouter votre solution
+
+1. Exporter la solution depuis votre environnement de dev
+2. Placer le fichier ZIP dans `solution/TranslationDeploymentBot.zip`
+3. Le bot utilisera automatiquement cette solution
+
+## Actions disponibles
+
+| Action | Description |
+|--------|-------------|
+| `ValidateCredentials` | Valide les credentials Azure |
+| `FullDeployment` | Deploie le service de traduction complet |
+| `ValidateDeployment` | Teste un deploiement |
+| `ListDeployments` | Liste l'historique |
+| `CheckDataverse` | Verifie si Dataverse est active |
+| `EnableDataverse` | Cree un environnement avec Dataverse |
+| `ImportSolution` | Importe la solution Power Platform |
 
 ## Support
 
