@@ -1,0 +1,188 @@
+# Topic: Valider un deploiement existant
+# Copilot Studio Topic Definition
+
+name: ValidateDeployment
+displayName: Valider un deploiement
+description: Execute des tests de validation sur un deploiement existant
+
+triggers:
+  phrases:
+    - valider
+    - tester
+    - verifier
+    - test
+    - validation
+    - tester le deploiement
+    - est-ce que ca marche
+
+variables:
+  - name: clientName
+    type: string
+    description: Nom du client
+  - name: functionAppUrl
+    type: string
+    description: URL de l'application (optionnel)
+  - name: functionKey
+    type: string
+    description: Cle API
+    sensitive: true
+  - name: validationResult
+    type: object
+    description: Resultat de la validation
+
+nodes:
+  - id: askInput
+    type: question
+    prompt: |
+      Comment voulez-vous identifier le deploiement a tester ?
+    choices:
+      - label: Par nom de client
+        value: byName
+        next: askClientName
+      - label: Par URL directe
+        value: byUrl
+        next: askUrl
+
+  - id: askClientName
+    type: question
+    prompt: Quel est le nom du client ?
+    variable: clientName
+    next: lookupDeployment
+
+  - id: lookupDeployment
+    type: action
+    action: GetDeploymentInfo
+    inputs:
+      clientName: "=variables.clientName"
+    outputs:
+      result: deploymentInfo
+    next: checkDeploymentFound
+
+  - id: checkDeploymentFound
+    type: condition
+    conditions:
+      - expression: "=variables.deploymentInfo.found == true"
+        next: runValidationByName
+      - expression: "=variables.deploymentInfo.found == false"
+        next: deploymentNotFound
+
+  - id: deploymentNotFound
+    type: message
+    content: |
+      Deploiement non trouve pour "{clientName}".
+      Voulez-vous entrer l'URL manuellement ?
+    next: askUrlFallback
+
+  - id: askUrlFallback
+    type: question
+    prompt: Entrez l'URL de l'application ?
+    choices:
+      - label: Oui, entrer l'URL
+        value: yes
+        next: askUrl
+      - label: Non, annuler
+        value: no
+        next: cancelled
+
+  - id: askUrl
+    type: question
+    prompt: |
+      Quelle est l'URL de l'application Azure Functions ?
+      (Format: https://func-translation-xxx.azurewebsites.net)
+    variable: functionAppUrl
+    validation:
+      pattern: "^https://.*\\.azurewebsites\\.net$"
+      errorMessage: L'URL doit etre une URL Azure Functions valide.
+    next: askKey
+
+  - id: askKey
+    type: question
+    prompt: Quelle est la cle API (Function Key) ?
+    variable: functionKey
+    inputType: password
+    next: runValidationByUrl
+
+  - id: runValidationByName
+    type: action
+    action: ValidateDeployment
+    inputs:
+      functionAppUrl: "=variables.deploymentInfo.functionAppUrl"
+      functionKey: "=variables.deploymentInfo.functionKey"
+    outputs:
+      result: validationResult
+    progressMessages:
+      - "Test du health check..."
+      - "Test des endpoints..."
+      - "Test de la connexion Storage..."
+      - "Test de la connexion Translator..."
+    next: showResults
+
+  - id: runValidationByUrl
+    type: action
+    action: ValidateDeployment
+    inputs:
+      functionAppUrl: "=variables.functionAppUrl"
+      functionKey: "=variables.functionKey"
+    outputs:
+      result: validationResult
+    progressMessages:
+      - "Test du health check..."
+      - "Test des endpoints..."
+      - "Test de la connexion Storage..."
+      - "Test de la connexion Translator..."
+    next: showResults
+
+  - id: showResults
+    type: message
+    content: |
+      **Resultats de la validation:**
+
+      | Test | Statut | Details |
+      |------|--------|---------|
+      | Health Check | {validationResult.healthCheck.status} | {validationResult.healthCheck.message} |
+      | Endpoint /languages | {validationResult.languagesCheck.status} | {validationResult.languagesCheck.message} |
+      | Endpoint /formats | {validationResult.formatsCheck.status} | {validationResult.formatsCheck.message} |
+      | Connexion Storage | {validationResult.storageCheck.status} | {validationResult.storageCheck.message} |
+      | Connexion Translator | {validationResult.translatorCheck.status} | {validationResult.translatorCheck.message} |
+
+      **Resume:** {validationResult.summary}
+
+      **Score de sante:** {validationResult.healthScore}/100
+    next: showRecommendations
+
+  - id: showRecommendations
+    type: condition
+    conditions:
+      - expression: "=variables.validationResult.healthScore == 100"
+        next: allGood
+      - expression: "=variables.validationResult.healthScore < 100"
+        next: showIssues
+
+  - id: allGood
+    type: message
+    content: |
+      Tous les tests sont passes ! Le deploiement fonctionne correctement.
+    next: finished
+
+  - id: showIssues
+    type: message
+    content: |
+      **Problemes detectes:**
+
+      {validationResult.recommendations}
+
+      Voulez-vous que je vous aide a resoudre ces problemes ?
+    next: finished
+
+  - id: cancelled
+    type: message
+    content: Validation annulee.
+    next: finished
+
+  - id: finished
+    type: message
+    content: |
+      Besoin d'autre chose ?
+      - "deployer" - Nouveau deploiement
+      - "statut" - Verifier un statut
+      - "liste" - Historique des deploiements

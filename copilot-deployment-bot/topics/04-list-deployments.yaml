@@ -1,0 +1,99 @@
+# Topic: Lister les deploiements
+# Copilot Studio Topic Definition
+
+name: ListDeployments
+displayName: Lister les deploiements
+description: Affiche l'historique des deploiements effectues
+
+triggers:
+  phrases:
+    - liste
+    - historique
+    - deploiements
+    - tous les deploiements
+    - voir les deploiements
+    - clients deployes
+    - quels clients
+
+variables:
+  - name: deploymentsList
+    type: array
+    description: Liste des deploiements
+  - name: filterRegion
+    type: string
+    description: Filtre par region (optionnel)
+
+nodes:
+  - id: askFilter
+    type: question
+    prompt: |
+      Voulez-vous filtrer les deploiements par region ?
+    choices:
+      - label: Non, afficher tous
+        value: all
+        next: getAllDeployments
+      - label: France Central
+        value: francecentral
+        next: getFilteredDeployments
+      - label: West Europe
+        value: westeurope
+        next: getFilteredDeployments
+      - label: North Europe
+        value: northeurope
+        next: getFilteredDeployments
+
+  - id: getAllDeployments
+    type: action
+    action: ListDeployments
+    inputs:
+      filter: null
+    outputs:
+      result: deploymentsList
+    next: showList
+
+  - id: getFilteredDeployments
+    type: action
+    action: ListDeployments
+    inputs:
+      filter: "=variables.filterRegion"
+    outputs:
+      result: deploymentsList
+    next: showList
+
+  - id: showList
+    type: condition
+    conditions:
+      - expression: "=length(variables.deploymentsList) > 0"
+        next: displayDeployments
+      - expression: "=length(variables.deploymentsList) == 0"
+        next: noDeployments
+
+  - id: displayDeployments
+    type: message
+    content: |
+      **Deploiements ({length(deploymentsList)} trouves):**
+
+      | Client | Region | Statut | Date | URL |
+      |--------|--------|--------|------|-----|
+      {#each deploymentsList}
+      | {this.clientName} | {this.region} | {this.status} | {this.deployedAt} | [Lien]({this.functionAppUrl}) |
+      {/each}
+
+      Pour plus de details sur un deploiement specifique, dites "statut <nom-client>".
+    next: finished
+
+  - id: noDeployments
+    type: message
+    content: |
+      Aucun deploiement trouve.
+
+      Lancez un nouveau deploiement avec "deployer".
+    next: finished
+
+  - id: finished
+    type: message
+    content: |
+      Besoin d'autre chose ?
+      - "deployer" - Nouveau deploiement
+      - "statut <client>" - Details d'un deploiement
+      - "valider <client>" - Tester un deploiement

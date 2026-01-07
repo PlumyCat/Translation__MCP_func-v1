@@ -1,0 +1,85 @@
+# Topic: Verifier le statut d'un deploiement
+# Copilot Studio Topic Definition
+
+name: CheckDeploymentStatus
+displayName: Verifier le statut
+description: Permet de verifier le statut d'un deploiement en cours ou passe
+
+triggers:
+  phrases:
+    - statut
+    - progression
+    - etat
+    - ou en est
+    - avancement
+    - verifier le statut
+    - statut du deploiement
+
+variables:
+  - name: clientName
+    type: string
+    description: Nom du client
+  - name: deploymentStatus
+    type: object
+    description: Statut du deploiement
+
+nodes:
+  - id: askClientName
+    type: question
+    prompt: Pour quel client voulez-vous verifier le statut du deploiement ?
+    variable: clientName
+    next: getStatus
+
+  - id: getStatus
+    type: action
+    action: GetDeploymentStatus
+    inputs:
+      clientName: "=variables.clientName"
+    outputs:
+      result: deploymentStatus
+    next: checkStatusFound
+
+  - id: checkStatusFound
+    type: condition
+    conditions:
+      - expression: "=variables.deploymentStatus.found == true"
+        next: showStatus
+      - expression: "=variables.deploymentStatus.found == false"
+        next: notFound
+
+  - id: showStatus
+    type: message
+    content: |
+      **Statut du deploiement pour {clientName}:**
+
+      | Information | Valeur |
+      |-------------|--------|
+      | Statut | {deploymentStatus.status} |
+      | Date de deploiement | {deploymentStatus.deployedAt} |
+      | Region | {deploymentStatus.region} |
+      | URL | {deploymentStatus.functionAppUrl} |
+
+      **Ressources:**
+      - Resource Group: {deploymentStatus.resourceGroup} ({deploymentStatus.resourceGroupStatus})
+      - Storage Account: {deploymentStatus.storageAccount} ({deploymentStatus.storageStatus})
+      - Translator: {deploymentStatus.translator} ({deploymentStatus.translatorStatus})
+      - Function App: {deploymentStatus.functionApp} ({deploymentStatus.functionAppStatus})
+
+      **Sante du service:** {deploymentStatus.healthStatus}
+    next: finished
+
+  - id: notFound
+    type: message
+    content: |
+      Aucun deploiement trouve pour le client "{clientName}".
+
+      Verifiez le nom du client ou lancez un nouveau deploiement avec "deployer".
+    next: finished
+
+  - id: finished
+    type: message
+    content: |
+      Besoin d'autre chose ?
+      - "deployer" - Nouveau deploiement
+      - "valider" - Tester un deploiement
+      - "liste" - Historique des deploiements

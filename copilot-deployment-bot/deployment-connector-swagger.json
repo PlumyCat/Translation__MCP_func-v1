@@ -1,0 +1,1121 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Translation Service Deployment",
+    "description": "API pour automatiser le deploiement du service de traduction Azure Functions",
+    "version": "1.0.0",
+    "contact": {
+      "name": "DevOps Team"
+    }
+  },
+  "host": "func-deployment-bot.azurewebsites.net",
+  "basePath": "/api",
+  "schemes": ["https"],
+  "consumes": ["application/json"],
+  "produces": ["application/json"],
+  "securityDefinitions": {
+    "api_key": {
+      "type": "apiKey",
+      "name": "x-functions-key",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "api_key": []
+    }
+  ],
+  "paths": {
+    "/validate-credentials": {
+      "post": {
+        "operationId": "ValidateCredentials",
+        "summary": "Valider les credentials Azure",
+        "description": "Verifie que les credentials Azure du client sont valides et ont les permissions necessaires",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AzureCredentials"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resultat de la validation",
+            "schema": {
+              "$ref": "#/definitions/ValidationResult"
+            }
+          },
+          "400": {
+            "description": "Parametres invalides"
+          }
+        }
+      }
+    },
+    "/deploy": {
+      "post": {
+        "operationId": "FullDeployment",
+        "summary": "Deploiement complet",
+        "description": "Execute un deploiement complet du service de traduction pour un client",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/DeploymentRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resultat du deploiement",
+            "schema": {
+              "$ref": "#/definitions/DeploymentResult"
+            }
+          },
+          "400": {
+            "description": "Parametres invalides"
+          },
+          "500": {
+            "description": "Erreur lors du deploiement"
+          }
+        }
+      }
+    },
+    "/deploy/resource-group": {
+      "post": {
+        "operationId": "CreateResourceGroup",
+        "summary": "Creer le Resource Group",
+        "description": "Cree le Resource Group Azure pour le client",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ResourceGroupRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resource Group cree",
+            "schema": {
+              "$ref": "#/definitions/ResourceResult"
+            }
+          }
+        }
+      }
+    },
+    "/deploy/storage": {
+      "post": {
+        "operationId": "CreateStorageAccount",
+        "summary": "Creer le Storage Account",
+        "description": "Cree le Storage Account avec les containers necessaires",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/StorageRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Storage Account cree",
+            "schema": {
+              "$ref": "#/definitions/StorageResult"
+            }
+          }
+        }
+      }
+    },
+    "/deploy/translator": {
+      "post": {
+        "operationId": "CreateTranslatorResource",
+        "summary": "Creer le service Translator",
+        "description": "Cree le service Azure Translator (Cognitive Services)",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/TranslatorRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Translator cree",
+            "schema": {
+              "$ref": "#/definitions/TranslatorResult"
+            }
+          }
+        }
+      }
+    },
+    "/deploy/functions": {
+      "post": {
+        "operationId": "DeployFunctions",
+        "summary": "Deployer les Azure Functions",
+        "description": "Deploie l'application Azure Functions",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/FunctionsRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Functions deployees",
+            "schema": {
+              "$ref": "#/definitions/FunctionsResult"
+            }
+          }
+        }
+      }
+    },
+    "/deploy/configure": {
+      "post": {
+        "operationId": "ConfigureEnvironment",
+        "summary": "Configurer les variables d'environnement",
+        "description": "Configure les App Settings de l'Azure Function",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ConfigureRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Configuration appliquee",
+            "schema": {
+              "$ref": "#/definitions/ConfigureResult"
+            }
+          }
+        }
+      }
+    },
+    "/validate-deployment": {
+      "post": {
+        "operationId": "ValidateDeployment",
+        "summary": "Valider un deploiement",
+        "description": "Execute des tests de validation sur un deploiement existant",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ValidateDeploymentRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resultat de la validation",
+            "schema": {
+              "$ref": "#/definitions/ValidateDeploymentResult"
+            }
+          }
+        }
+      }
+    },
+    "/deployments": {
+      "get": {
+        "operationId": "ListDeployments",
+        "summary": "Lister les deploiements",
+        "description": "Retourne la liste des deploiements effectues",
+        "parameters": [
+          {
+            "name": "region",
+            "in": "query",
+            "type": "string",
+            "description": "Filtrer par region"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "type": "string",
+            "description": "Filtrer par statut"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste des deploiements",
+            "schema": {
+              "$ref": "#/definitions/DeploymentsList"
+            }
+          }
+        }
+      }
+    },
+    "/deployments/{clientName}": {
+      "get": {
+        "operationId": "GetDeploymentStatus",
+        "summary": "Obtenir le statut d'un deploiement",
+        "description": "Retourne les details et le statut d'un deploiement specifique",
+        "parameters": [
+          {
+            "name": "clientName",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Nom du client"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Details du deploiement",
+            "schema": {
+              "$ref": "#/definitions/DeploymentStatus"
+            }
+          },
+          "404": {
+            "description": "Deploiement non trouve"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "DeleteDeployment",
+        "summary": "Supprimer un deploiement",
+        "description": "Supprime toutes les ressources Azure d'un deploiement",
+        "parameters": [
+          {
+            "name": "clientName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AzureCredentials"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deploiement supprime"
+          }
+        }
+      }
+    },
+    "/deployments/{clientName}/info": {
+      "get": {
+        "operationId": "GetDeploymentInfo",
+        "summary": "Obtenir les informations d'un deploiement",
+        "description": "Retourne les informations de connexion d'un deploiement",
+        "parameters": [
+          {
+            "name": "clientName",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Informations du deploiement",
+            "schema": {
+              "$ref": "#/definitions/DeploymentInfo"
+            }
+          }
+        }
+      }
+    },
+    "/check-dataverse": {
+      "post": {
+        "operationId": "CheckDataverse",
+        "summary": "Verifier si Dataverse est active",
+        "description": "Verifie si Dataverse est active dans un environnement Power Platform",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CheckDataverseRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resultat de la verification",
+            "schema": {
+              "$ref": "#/definitions/CheckDataverseResult"
+            }
+          }
+        }
+      }
+    },
+    "/enable-dataverse": {
+      "post": {
+        "operationId": "EnableDataverse",
+        "summary": "Activer Dataverse",
+        "description": "Cree un nouvel environnement Power Platform avec Dataverse active",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/EnableDataverseRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resultat de l'activation",
+            "schema": {
+              "$ref": "#/definitions/EnableDataverseResult"
+            }
+          }
+        }
+      }
+    },
+    "/import-solution": {
+      "post": {
+        "operationId": "ImportSolution",
+        "summary": "Importer la solution Power Platform",
+        "description": "Importe la solution du bot dans un environnement Dataverse",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ImportSolutionRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resultat de l'import",
+            "schema": {
+              "$ref": "#/definitions/ImportSolutionResult"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "AzureCredentials": {
+      "type": "object",
+      "required": ["subscriptionId", "tenantId", "clientId", "clientSecret"],
+      "properties": {
+        "subscriptionId": {
+          "type": "string",
+          "description": "ID de la souscription Azure",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "ID du tenant Azure AD",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "clientId": {
+          "type": "string",
+          "description": "ID du Service Principal",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "clientSecret": {
+          "type": "string",
+          "description": "Secret du Service Principal",
+          "x-ms-secret": true
+        }
+      }
+    },
+    "ValidationResult": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "description": "Credentials valides ou non"
+        },
+        "subscriptionName": {
+          "type": "string",
+          "description": "Nom de la souscription"
+        },
+        "permissions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Permissions du Service Principal"
+        },
+        "error": {
+          "type": "string",
+          "description": "Message d'erreur si echec"
+        }
+      }
+    },
+    "DeploymentRequest": {
+      "type": "object",
+      "required": ["clientName", "region", "subscriptionId", "tenantId", "clientId", "clientSecret"],
+      "properties": {
+        "clientName": {
+          "type": "string",
+          "description": "Nom du client (sans espaces)",
+          "pattern": "^[a-z0-9-]+$"
+        },
+        "region": {
+          "type": "string",
+          "description": "Region Azure",
+          "enum": ["francecentral", "westeurope", "northeurope", "eastus", "westus"]
+        },
+        "subscriptionId": {
+          "type": "string"
+        },
+        "tenantId": {
+          "type": "string"
+        },
+        "clientId": {
+          "type": "string"
+        },
+        "clientSecret": {
+          "type": "string",
+          "x-ms-secret": true
+        },
+        "enableOneDrive": {
+          "type": "boolean",
+          "description": "Activer l'integration OneDrive",
+          "default": false
+        },
+        "oneDriveConfig": {
+          "$ref": "#/definitions/OneDriveConfig"
+        }
+      }
+    },
+    "OneDriveConfig": {
+      "type": "object",
+      "properties": {
+        "clientId": {
+          "type": "string",
+          "description": "Client ID pour Graph API"
+        },
+        "clientSecret": {
+          "type": "string",
+          "x-ms-secret": true
+        },
+        "tenantId": {
+          "type": "string"
+        },
+        "folderName": {
+          "type": "string",
+          "default": "Translated_Documents"
+        }
+      }
+    },
+    "DeploymentResult": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "deploymentId": {
+          "type": "string"
+        },
+        "resourceGroup": {
+          "type": "string"
+        },
+        "functionAppUrl": {
+          "type": "string"
+        },
+        "functionKey": {
+          "type": "string",
+          "x-ms-secret": true
+        },
+        "storageAccountName": {
+          "type": "string"
+        },
+        "translatorEndpoint": {
+          "type": "string"
+        },
+        "failedStep": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        },
+        "deployedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "ResourceGroupRequest": {
+      "type": "object",
+      "required": ["clientName", "region"],
+      "allOf": [
+        {
+          "$ref": "#/definitions/AzureCredentials"
+        }
+      ],
+      "properties": {
+        "clientName": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ResourceResult": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "resourceId": {
+          "type": "string"
+        },
+        "resourceName": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "StorageRequest": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/AzureCredentials"
+        }
+      ],
+      "properties": {
+        "clientName": {
+          "type": "string"
+        },
+        "resourceGroup": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        }
+      }
+    },
+    "StorageResult": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "storageAccountName": {
+          "type": "string"
+        },
+        "storageAccountKey": {
+          "type": "string",
+          "x-ms-secret": true
+        },
+        "inputContainer": {
+          "type": "string"
+        },
+        "outputContainer": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "TranslatorRequest": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/AzureCredentials"
+        }
+      ],
+      "properties": {
+        "clientName": {
+          "type": "string"
+        },
+        "resourceGroup": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "sku": {
+          "type": "string",
+          "default": "S1"
+        }
+      }
+    },
+    "TranslatorResult": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "translatorEndpoint": {
+          "type": "string"
+        },
+        "translatorKey": {
+          "type": "string",
+          "x-ms-secret": true
+        },
+        "translatorRegion": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "FunctionsRequest": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/AzureCredentials"
+        }
+      ],
+      "properties": {
+        "clientName": {
+          "type": "string"
+        },
+        "resourceGroup": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "storageAccountName": {
+          "type": "string"
+        }
+      }
+    },
+    "FunctionsResult": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "functionAppName": {
+          "type": "string"
+        },
+        "functionAppUrl": {
+          "type": "string"
+        },
+        "functionKey": {
+          "type": "string",
+          "x-ms-secret": true
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "ConfigureRequest": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/definitions/AzureCredentials"
+        }
+      ],
+      "properties": {
+        "functionAppName": {
+          "type": "string"
+        },
+        "resourceGroup": {
+          "type": "string"
+        },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "storageAccountName": {
+              "type": "string"
+            },
+            "storageAccountKey": {
+              "type": "string"
+            },
+            "translatorKey": {
+              "type": "string"
+            },
+            "translatorEndpoint": {
+              "type": "string"
+            },
+            "translatorRegion": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "ConfigureResult": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "configuredSettings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "ValidateDeploymentRequest": {
+      "type": "object",
+      "required": ["functionAppUrl"],
+      "properties": {
+        "functionAppUrl": {
+          "type": "string",
+          "description": "URL de l'application Azure Functions"
+        },
+        "functionKey": {
+          "type": "string",
+          "description": "Cle API de l'application",
+          "x-ms-secret": true
+        }
+      }
+    },
+    "ValidateDeploymentResult": {
+      "type": "object",
+      "properties": {
+        "healthCheck": {
+          "$ref": "#/definitions/TestResult"
+        },
+        "languagesCheck": {
+          "$ref": "#/definitions/TestResult"
+        },
+        "formatsCheck": {
+          "$ref": "#/definitions/TestResult"
+        },
+        "storageCheck": {
+          "$ref": "#/definitions/TestResult"
+        },
+        "translatorCheck": {
+          "$ref": "#/definitions/TestResult"
+        },
+        "healthScore": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "summary": {
+          "type": "string"
+        },
+        "recommendations": {
+          "type": "string"
+        }
+      }
+    },
+    "TestResult": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["OK", "FAILED", "WARNING"]
+        },
+        "message": {
+          "type": "string"
+        },
+        "responseTime": {
+          "type": "integer",
+          "description": "Temps de reponse en ms"
+        }
+      }
+    },
+    "DeploymentsList": {
+      "type": "object",
+      "properties": {
+        "deployments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DeploymentSummary"
+          }
+        },
+        "total": {
+          "type": "integer"
+        }
+      }
+    },
+    "DeploymentSummary": {
+      "type": "object",
+      "properties": {
+        "clientName": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Active", "Failed", "Deleted"]
+        },
+        "deployedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "functionAppUrl": {
+          "type": "string"
+        }
+      }
+    },
+    "DeploymentStatus": {
+      "type": "object",
+      "properties": {
+        "found": {
+          "type": "boolean"
+        },
+        "clientName": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "deployedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "region": {
+          "type": "string"
+        },
+        "resourceGroup": {
+          "type": "string"
+        },
+        "resourceGroupStatus": {
+          "type": "string"
+        },
+        "storageAccount": {
+          "type": "string"
+        },
+        "storageStatus": {
+          "type": "string"
+        },
+        "translator": {
+          "type": "string"
+        },
+        "translatorStatus": {
+          "type": "string"
+        },
+        "functionApp": {
+          "type": "string"
+        },
+        "functionAppStatus": {
+          "type": "string"
+        },
+        "functionAppUrl": {
+          "type": "string"
+        },
+        "healthStatus": {
+          "type": "string"
+        }
+      }
+    },
+    "DeploymentInfo": {
+      "type": "object",
+      "properties": {
+        "found": {
+          "type": "boolean"
+        },
+        "clientName": {
+          "type": "string"
+        },
+        "functionAppUrl": {
+          "type": "string"
+        },
+        "functionKey": {
+          "type": "string",
+          "x-ms-secret": true
+        },
+        "resourceGroup": {
+          "type": "string"
+        }
+      }
+    },
+    "CheckDataverseRequest": {
+      "type": "object",
+      "required": ["tenantId", "clientId", "clientSecret"],
+      "properties": {
+        "environmentId": {
+          "type": "string",
+          "description": "ID de l'environnement Power Platform"
+        },
+        "environmentName": {
+          "type": "string",
+          "description": "Nom de l'environnement (alternatif a environmentId)"
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "ID du tenant Azure AD"
+        },
+        "clientId": {
+          "type": "string",
+          "description": "ID du Service Principal"
+        },
+        "clientSecret": {
+          "type": "string",
+          "description": "Secret du Service Principal",
+          "x-ms-secret": true
+        }
+      }
+    },
+    "CheckDataverseResult": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "dataverseEnabled": {
+          "type": "boolean",
+          "description": "True si Dataverse est active"
+        },
+        "environmentName": {
+          "type": "string"
+        },
+        "environmentUrl": {
+          "type": "string"
+        },
+        "organizationId": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "EnableDataverseRequest": {
+      "type": "object",
+      "required": ["environmentName", "tenantId", "clientId", "clientSecret"],
+      "properties": {
+        "environmentName": {
+          "type": "string",
+          "description": "Nom du nouvel environnement"
+        },
+        "tenantId": {
+          "type": "string"
+        },
+        "clientId": {
+          "type": "string"
+        },
+        "clientSecret": {
+          "type": "string",
+          "x-ms-secret": true
+        },
+        "region": {
+          "type": "string",
+          "description": "Region Power Platform",
+          "enum": ["france", "europe", "unitedstates", "asia", "australia", "canada", "japan", "india", "unitedkingdom", "southamerica", "germany", "switzerland"],
+          "default": "france"
+        },
+        "environmentType": {
+          "type": "string",
+          "enum": ["Sandbox", "Production", "Developer"],
+          "default": "Production"
+        },
+        "currency": {
+          "type": "string",
+          "default": "EUR"
+        },
+        "language": {
+          "type": "integer",
+          "description": "Code langue (1036=FR, 1033=EN)",
+          "default": 1036
+        }
+      }
+    },
+    "EnableDataverseResult": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "environmentId": {
+          "type": "string"
+        },
+        "environmentName": {
+          "type": "string"
+        },
+        "environmentUrl": {
+          "type": "string"
+        },
+        "dataverseEnabled": {
+          "type": "boolean"
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "ImportSolutionRequest": {
+      "type": "object",
+      "required": ["environmentUrl", "tenantId", "clientId", "clientSecret"],
+      "properties": {
+        "environmentUrl": {
+          "type": "string",
+          "description": "URL de l'environnement Dataverse"
+        },
+        "tenantId": {
+          "type": "string"
+        },
+        "clientId": {
+          "type": "string"
+        },
+        "clientSecret": {
+          "type": "string",
+          "x-ms-secret": true
+        },
+        "solutionPath": {
+          "type": "string",
+          "description": "Chemin vers le fichier ZIP (optionnel, utilise la solution embarquee par defaut)"
+        },
+        "overwrite": {
+          "type": "boolean",
+          "description": "Ecraser si la solution existe deja",
+          "default": true
+        }
+      }
+    },
+    "ImportSolutionResult": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        },
+        "solutionName": {
+          "type": "string"
+        },
+        "solutionVersion": {
+          "type": "string"
+        },
+        "importJobId": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

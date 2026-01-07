@@ -1,0 +1,10 @@
+azure-functions>=1.18.0
+azure-identity>=1.15.0
+azure-mgmt-resource>=23.0.0
+azure-mgmt-storage>=21.0.0
+azure-mgmt-cognitiveservices>=13.0.0
+azure-mgmt-web>=7.0.0
+azure-storage-blob>=12.19.0
+requests>=2.31.0
+pydantic>=2.5.0
+python-dotenv>=1.0.0
