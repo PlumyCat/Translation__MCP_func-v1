@@ -28,16 +28,44 @@
   "paths": {
     "/bootstrap-client": {
       "post": {
-        "operationId": "BootstrapClient",
-        "summary": "Creer le Service Principal chez le client",
-        "description": "Cree automatiquement l'App Registration, le Service Principal et assigne le role Contributor sur la subscription",
+        "operationId": "BootstrapStart",
+        "summary": "Demarrer l'authentification admin (etape 1)",
+        "description": "Demarre le Device Code Flow. Retourne un code et une URL que le tech doit utiliser pour s'authentifier avec MFA.",
         "parameters": [
           {
             "name": "body",
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/BootstrapRequest"
+              "$ref": "#/definitions/BootstrapStartRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Code d'authentification genere",
+            "schema": {
+              "$ref": "#/definitions/BootstrapStartResult"
+            }
+          },
+          "400": {
+            "description": "Parametres invalides"
+          }
+        }
+      }
+    },
+    "/bootstrap-complete": {
+      "post": {
+        "operationId": "BootstrapComplete",
+        "summary": "Finaliser la creation du Service Principal (etape 2)",
+        "description": "Attend que le tech complete l'authentification, puis cree l'App Registration, Service Principal et assigne le role Contributor.",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/BootstrapCompleteRequest"
             }
           }
         ],
@@ -45,8 +73,11 @@
           "200": {
             "description": "Service Principal cree avec succes",
             "schema": {
-              "$ref": "#/definitions/BootstrapResult"
+              "$ref": "#/definitions/BootstrapCompleteResult"
             }
+          },
+          "202": {
+            "description": "Authentification en attente - reessayer"
           },
           "400": {
             "description": "Parametres invalides"
@@ -373,7 +404,7 @@
     }
   },
   "definitions": {
-    "BootstrapRequest": {
+    "BootstrapStartRequest": {
       "type": "object",
       "required": ["tenantId", "subscriptionId"],
       "properties": {
@@ -386,24 +417,69 @@
           "type": "string",
           "description": "ID de la souscription Azure du client",
           "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        }
+      }
+    },
+    "BootstrapStartResult": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
         },
-        "adminUsername": {
-          "type": "string",
-          "description": "Email de l'admin Azure (Global Admin)"
+        "authPending": {
+          "type": "boolean",
+          "description": "True si l'authentification est en attente"
         },
-        "adminPassword": {
-          "type": "string",
-          "description": "Mot de passe de l'admin",
-          "x-ms-secret": true
+        "tenantId": {
+          "type": "string"
         },
-        "adminClientId": {
-          "type": "string",
-          "description": "Client ID d'un Service Principal admin existant (alternative a username/password)"
+        "subscriptionId": {
+          "type": "string"
         },
-        "adminClientSecret": {
+        "deviceCode": {
           "type": "string",
-          "description": "Secret du Service Principal admin",
-          "x-ms-secret": true
+          "description": "Code interne pour l'etape 2 (a passer a BootstrapComplete)"
+        },
+        "userCode": {
+          "type": "string",
+          "description": "Code a afficher au tech pour l'authentification"
+        },
+        "verificationUri": {
+          "type": "string",
+          "description": "URL ou le tech doit aller pour s'authentifier"
+        },
+        "message": {
+          "type": "string",
+          "description": "Message d'instructions pour le tech"
+        },
+        "expiresIn": {
+          "type": "integer",
+          "description": "Duree de validite du code en secondes"
+        },
+        "instructions": {
+          "type": "string",
+          "description": "Instructions formatees pour le bot"
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "BootstrapCompleteRequest": {
+      "type": "object",
+      "required": ["tenantId", "subscriptionId", "deviceCode"],
+      "properties": {
+        "tenantId": {
+          "type": "string",
+          "description": "ID du tenant (meme que pour BootstrapStart)"
+        },
+        "subscriptionId": {
+          "type": "string",
+          "description": "ID de la souscription (meme que pour BootstrapStart)"
+        },
+        "deviceCode": {
+          "type": "string",
+          "description": "Device code obtenu de BootstrapStart"
         },
         "appName": {
           "type": "string",
@@ -412,17 +488,22 @@
         }
       }
     },
-    "BootstrapResult": {
+    "BootstrapCompleteResult": {
       "type": "object",
       "properties": {
         "success": {
           "type": "boolean"
+        },
+        "authPending": {
+          "type": "boolean",
+          "description": "True si l'auth n'est pas encore complete (reessayer)"
         },
         "message": {
           "type": "string"
         },
         "credentials": {
           "type": "object",
+          "description": "Les credentials du nouveau Service Principal",
           "properties": {
             "tenantId": {
               "type": "string"

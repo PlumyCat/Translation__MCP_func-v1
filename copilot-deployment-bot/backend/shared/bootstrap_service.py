@@ -1,12 +1,14 @@
 """
 Bootstrap Service - Cree le Service Principal et assigne les roles
 Utilise Microsoft Graph API et Azure Management API
+Supporte Device Code Flow pour MFA
 """
 import logging
 import requests
 import uuid
+import time
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 
 
 class BootstrapService:
@@ -14,25 +16,102 @@ class BootstrapService:
 
     GRAPH_API_URL = "https://graph.microsoft.com/v1.0"
     ARM_API_URL = "https://management.azure.com"
+    # Azure CLI public client ID (supporte device code flow)
+    AZURE_CLI_CLIENT_ID = "04b07795-8ddb-461a-bbee-02f9e1bf7b46"
 
     def __init__(
         self,
         tenant_id: str,
         subscription_id: str,
-        admin_username: Optional[str] = None,
-        admin_password: Optional[str] = None,
         admin_client_id: Optional[str] = None,
-        admin_client_secret: Optional[str] = None
+        admin_client_secret: Optional[str] = None,
+        device_code: Optional[str] = None
     ):
         self.tenant_id = tenant_id
         self.subscription_id = subscription_id
-        self.admin_username = admin_username
-        self.admin_password = admin_password
         self.admin_client_id = admin_client_id
         self.admin_client_secret = admin_client_secret
+        self.device_code = device_code
+        self._cached_tokens: Dict[str, str] = {}
+
+    @classmethod
+    def start_device_code_flow(cls, tenant_id: str) -> Dict[str, Any]:
+        """
+        Demarre le Device Code Flow - retourne le code et l'URL pour l'utilisateur.
+        L'utilisateur doit aller sur l'URL et entrer le code pour s'authentifier.
+        """
+        device_code_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/devicecode"
+
+        # On demande les scopes pour Graph et ARM
+        data = {
+            "client_id": cls.AZURE_CLI_CLIENT_ID,
+            "scope": "https://graph.microsoft.com/.default https://management.azure.com/.default offline_access"
+        }
+
+        response = requests.post(device_code_url, data=data)
+        if response.status_code != 200:
+            raise Exception(f"Failed to start device code flow: {response.text}")
+
+        result = response.json()
+        return {
+            "device_code": result["device_code"],
+            "user_code": result["user_code"],
+            "verification_uri": result["verification_uri"],
+            "message": result["message"],
+            "expires_in": result["expires_in"],
+            "interval": result.get("interval", 5)
+        }
+
+    @classmethod
+    def poll_device_code(cls, tenant_id: str, device_code: str, interval: int = 5, timeout: int = 300) -> Dict[str, str]:
+        """
+        Poll pour obtenir le token apres que l'utilisateur a complete l'auth.
+        Retourne les tokens (access_token, refresh_token) ou leve une exception.
+        """
+        token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+
+        data = {
+            "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+            "client_id": cls.AZURE_CLI_CLIENT_ID,
+            "device_code": device_code
+        }
+
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            response = requests.post(token_url, data=data)
+            result = response.json()
+
+            if response.status_code == 200:
+                return {
+                    "access_token": result["access_token"],
+                    "refresh_token": result.get("refresh_token", ""),
+                    "expires_in": result.get("expires_in", 3600)
+                }
+
+            error = result.get("error", "")
+            if error == "authorization_pending":
+                # L'utilisateur n'a pas encore complete l'auth
+                time.sleep(interval)
+                continue
+            elif error == "slow_down":
+                # On poll trop vite
+                time.sleep(interval + 5)
+                continue
+            elif error == "expired_token":
+                raise Exception("Le code a expire. Veuillez recommencer.")
+            elif error == "authorization_declined":
+                raise Exception("L'autorisation a ete refusee.")
+            else:
+                raise Exception(f"Erreur d'authentification: {result.get('error_description', error)}")
+
+        raise Exception("Timeout: l'utilisateur n'a pas complete l'authentification a temps.")
 
     def _get_token(self, scope: str) -> str:
         """Obtient un token d'acces pour le scope specifie"""
+        # Verifier le cache
+        if scope in self._cached_tokens:
+            return self._cached_tokens[scope]
+
         token_url = f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
 
         if self.admin_client_id and self.admin_client_secret:
@@ -43,26 +122,23 @@ class BootstrapService:
                 "client_secret": self.admin_client_secret,
                 "scope": scope
             }
-        elif self.admin_username and self.admin_password:
-            # Resource Owner Password Credentials (ROPC) flow
-            # Note: Necessite que l'app soit configuree pour ROPC et pas de MFA
-            # Pour un vrai scenario de prod, utiliser device code flow ou interactive
-            data = {
-                "grant_type": "password",
-                "client_id": "04b07795-8ddb-461a-bbee-02f9e1bf7b46",  # Azure CLI client ID
-                "username": self.admin_username,
-                "password": self.admin_password,
-                "scope": scope
-            }
+            response = requests.post(token_url, data=data)
+            if response.status_code != 200:
+                error_detail = response.json().get('error_description', response.text)
+                raise Exception(f"Failed to get token: {error_detail}")
+            token = response.json()["access_token"]
+            self._cached_tokens[scope] = token
+            return token
         else:
-            raise ValueError("No valid credentials provided")
+            raise ValueError("No valid credentials provided. Use device code flow first.")
 
-        response = requests.post(token_url, data=data)
-        if response.status_code != 200:
-            error_detail = response.json().get('error_description', response.text)
-            raise Exception(f"Failed to get token: {error_detail}")
-
-        return response.json()["access_token"]
+    def set_tokens_from_device_code(self, access_token: str):
+        """
+        Configure les tokens obtenus via device code flow.
+        Le meme token peut etre utilise pour Graph et ARM car on a demande les deux scopes.
+        """
+        self._cached_tokens["https://graph.microsoft.com/.default"] = access_token
+        self._cached_tokens["https://management.azure.com/.default"] = access_token
 
     def _get_graph_token(self) -> str:
         """Token pour Microsoft Graph API"""
