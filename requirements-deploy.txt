@@ -1,0 +1,2 @@
+# Dépendances pour le script de déploiement
+requests>=2.31.0

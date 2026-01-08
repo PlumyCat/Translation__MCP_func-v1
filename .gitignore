@@ -141,3 +141,18 @@ Translator-MCP-srv.swagger.json
 *.PublishSettings
 test.http
 Solution_Bot/
+
+# Deployment files (sensitive)
+deployment-*.json
+connector-config-*.json
+*.key
+*.secret
+
+# Temporary deployment files
+.deployment_temp/
+
+# Client folders contain sensitive data
+clients/*/deployment-*.json
+clients/*/connector-config-*.json
+clients/*/*.key
+clients/*/*.secret
